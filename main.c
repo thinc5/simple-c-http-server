@@ -11,8 +11,16 @@
 
 #include <arpa/inet.h>
 
-const char httpHeader[8000] = "HTTP/1.1 200 OK\r\n\nContent-Length: 2\r\n\nContent-Type: text/plain\r\n\n\r\n\nok";
 
+#include "config.h"
+
+const char http_ok_header[8000] = "HTTP/1.1 200 OK\r\n\nContent-Length: 2\r\n\n"
+	"Content-Type: text/plain\r\n\n\r\n\nok";
+
+/**
+ * A simple function to show the server address, given a refrence to a
+ * sockaddr_in struct.
+ */
 void show_server_address(struct sockaddr_in *server_address)
 {
     char host_buffer[INET6_ADDRSTRLEN];
@@ -24,6 +32,10 @@ void show_server_address(struct sockaddr_in *server_address)
     printf("Listening on %s:%s\n", host_buffer, port_buffer);
 }
 
+/**
+ * Display the connected peer's ip address.
+ * Not much use when the connection is proxied.
+ */
 void display_peer_ip(struct sockaddr *client_address)
 {
 	char buff[100];
@@ -32,21 +44,33 @@ void display_peer_ip(struct sockaddr *client_address)
 	printf("Connection from: %s\n", buff);
 }
 
+/**
+ * Continuously read from a provided socket until we read
+ * 0 bytes from it. Buffer is copied into an allocated string.
+ */
 void read_peer_data(int s)
 {
 	char buf[4096];
 	ssize_t bytes_read;
 	do {
-     	bytes_read = recv(s, buf, sizeof(buf), 0);
-     	if (bytes_read > 0) {
-		printf("Chunk:\n%s\n", buf);
-     	}
+     		bytes_read = recv(s, buf, sizeof(buf), 0);
+     		if (bytes_read > 0) {
+			printf("Chunk:\n%s\n", buf);
+     		}
 	} while (bytes_read > 0);	
 }
 
-int main(int argc, char** argv)
+/**
+ * Single threaded application, which handles incoming TCP traffic
+ * via ipv4 looking for whitelisted HTTP POST requests, then performs
+ * preditermined tasks.
+ *
+ * This program attempts to follow the suckless philosophy and configuration
+ * options can be found in config.h.
+ */
+int main()
 {
-    int port = 8123;
+    int port = PORT;
 
     // Create a socket, using ipv4 and tcp.
     int server_socket = socket(AF_INET, SOCK_STREAM, 0);
@@ -61,6 +85,7 @@ int main(int argc, char** argv)
     listen(server_socket, 20);
     // Show the address we are listening on.
     show_server_address(&address);
+    
     // Handle all incoming connections.
     int client_socket;
     while(1) {
