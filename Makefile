@@ -1,5 +1,5 @@
 CC=gcc
-C_FLAGS=--std=c11
+C_FLAGS=--std=gnu11
 
 all: http-webhook.o http-webhook 
 
@@ -11,4 +11,3 @@ http-webhook.o: main.c
 
 clean:
 	rm -f http-webhook.o http-webhook
-
