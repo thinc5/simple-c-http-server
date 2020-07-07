@@ -18,6 +18,7 @@
 
 #include "config.h"
 #include "http.h"
+#include "filter.h"
 
 volatile sig_atomic_t running = true;
 
@@ -148,7 +149,7 @@ int main()
         show_http_request(&request);
 
         // Filter data.
-
+        filter_request(request);
         // Action data.
         send(client_socket, MINIMAL_HTTP_RESPONSE_HEADDER, sizeof(MINIMAL_HTTP_RESPONSE_HEADDER), 0);
 
