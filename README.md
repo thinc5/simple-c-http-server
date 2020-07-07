@@ -1,5 +1,5 @@
 # simple-c-http-server
-A very, very simple http server written in C to consume github webhooks and do things.
+A very, simple http server written in C to consume github webhooks and do things.
 
 ## Rationale
 Can I build a small binary that largely follows the suckless philosophy which can handle my limited continuous integration needs?
