@@ -1,3 +1,4 @@
 *.o
 http-webhook
 .vscode
+vgcore*

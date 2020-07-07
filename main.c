@@ -17,6 +17,7 @@
 #include <arpa/inet.h>
 
 #include "config.h"
+#include "http.h"
 
 volatile sig_atomic_t running = true;
 
@@ -29,9 +30,9 @@ void show_server_address(struct sockaddr_in *server_address)
     char host_buffer[INET6_ADDRSTRLEN];
     char port_buffer[NI_MAXSERV];
     socklen_t addr_len = sizeof(*server_address);
-    int err = getnameinfo((struct sockaddr *)server_address, addr_len,
-                          host_buffer, sizeof(host_buffer), port_buffer,
-                          sizeof(port_buffer), NI_NUMERICHOST);
+    getnameinfo((struct sockaddr *)server_address, addr_len,
+                host_buffer, sizeof(host_buffer), port_buffer,
+                sizeof(port_buffer), NI_NUMERICHOST);
     printf("Listening on %s:%s\n", host_buffer, port_buffer);
 }
 
@@ -48,24 +49,10 @@ void display_peer_ip(struct sockaddr *client_address)
 }
 
 /**
- * Check if the incoming data is valid http.
- */
-bool is_valid_http(char *message)
-{
-    // Read along the message line by line.
-    char *slice = strtok(message, "\r\n");
-    while (slice != NULL)
-    {
-        printf("Slice:\n", slice);
-        slice = strtok(NULL, "\r\n");
-    }
-}
-
-/**
  * Continuously read from a provided socket until we read
  * 0 bytes from it. Buffer is copied into an allocated string.
  */
-void read_peer_data(int s)
+bool read_peer_data(int s, HTTP_REQUEST *req)
 {
     // Use select to prevent recv from blocking until there is something to read.
     sigset_t mask;
@@ -79,18 +66,20 @@ void read_peer_data(int s)
     struct timespec timeout = {.tv_nsec = 300};
     pselect(s + 1, &fds, NULL, NULL, &timeout, NULL);
     fcntl(s, F_SETFL, fcntl(s, F_GETFL) | O_NONBLOCK);
-    // Actually read.
+    // Actually read, from the socket into the buffer.
     char buf[4096];
+    memset(buf, '\0', 4096);
     ssize_t bytes_read;
     do
     {
         if (!running)
         {
-            return;
+            return false;
         }
         bytes_read = recv(s, buf, sizeof(buf), 0);
     } while (bytes_read > 0);
-    is_valid_http(buf);
+    // Process and parse the request.
+    return !parse_http_request(req, buf);
 }
 
 /**
@@ -101,7 +90,6 @@ void signal_handler(int signal_number)
 {
     if (signal_number == SIGINT)
     {
-        printf("received SIGINT\n");
         running = false;
     }
 }
@@ -150,20 +138,28 @@ int main()
         socklen_t sock_size = sizeof(struct sockaddr_in);
         client_socket = accept(server_socket, (struct sockaddr *)&client_address, &sock_size);
 
-        // Read incoming connection ip address.
+        printf("------ Connection established ------\n");
+        // Read incoming connection's ip address.
         display_peer_ip((struct sockaddr *)&client_address.sin_addr);
 
-        // Read data if any is avaliable.
-        read_peer_data(client_socket);
-        printf("Data read, replying...\n");
-        // Write back a 200 if we are happy with the sender.
-        printf("Writing a 200 back to the client.\n%s\n", MINIMAL_HTTP_RESPONSE_HEADDER);
+        // Read and validate data if any is avaliable.
+        HTTP_REQUEST request = {0};
+        read_peer_data(client_socket, &request);
+        show_http_request(&request);
+
+        // Filter data.
+
+        // Action data.
         send(client_socket, MINIMAL_HTTP_RESPONSE_HEADDER, sizeof(MINIMAL_HTTP_RESPONSE_HEADDER), 0);
+
+        // Free data.
+        free_http_request(&request);
 
         // Close the connection.
         close(client_socket);
+        printf("------ Connection closed ------\n");
     }
-    printf("Closing now...\n");
+    printf("Exiting now...\n");
     close(server_socket);
     return 0;
 }
