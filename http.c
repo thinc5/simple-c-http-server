@@ -121,6 +121,23 @@ void free_http_request(HTTP_REQUEST *req)
     req->header_number = 0;
 }
 
+/**
+ *  Return a pointer to the key of a http header if it exists in the provided
+ *  Request body.
+ */
+const char *get_http_header_value(HTTP_REQUEST req, const char *key)
+{
+    for (int i = 0; i < req.header_number; i++)
+    {
+        if (strcmp(req.headers[i].key, key) == 0)
+            return req.headers[i].value;
+    }
+    return NULL;
+}
+
+/**
+ * Attempt to parse a http request.
+ */
 HTTP_PARSE_ERRORS
 parse_http_request(HTTP_REQUEST *req, char *raw)
 {

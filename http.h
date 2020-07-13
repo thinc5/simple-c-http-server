@@ -9,7 +9,7 @@ typedef enum
     SUPPORTED_VERSIONS
 } HTTP_VERSION;
 
-static const char *HTTP_VERSION_STRING[SUPPORTED_VERSIONS] = {
+static const char *const HTTP_VERSION_STRING[SUPPORTED_VERSIONS] = {
     "HTTP/1",
     "HTTP/1.1",
     "HTTP/2"};
@@ -26,7 +26,7 @@ typedef enum
     NUM_METHODS
 } HTTP_METHOD;
 
-static const char *HTTP_METHOD_STRING[NUM_METHODS] = {
+static const char *const HTTP_METHOD_STRING[NUM_METHODS] = {
     "GET",
     "POST",
     "UPDATE",
@@ -82,6 +82,8 @@ parse_http_request(HTTP_REQUEST *req, char *raw);
 void free_http_request(HTTP_REQUEST *req);
 
 void show_http_request(HTTP_REQUEST *req);
+
+const char *get_http_header_value(HTTP_REQUEST req, const char *key);
 
 HTTP_PARSE_ERRORS
 parse_http_response(HTTP_RESPONSE *res, char *raw);

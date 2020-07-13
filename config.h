@@ -3,10 +3,14 @@
 
 #include "actions.h"
 
-#define LISTEN_ADDR "0.0.0.0"
+#define LISTEN_ADDR "127.0.0.1"
 #define PORT 8123
 
-// Minimal http ok header to reply to those webhooks which require a response.
+#define MAX_EVENTS 10
+
+#define DEFAULT_PAYLOAD_SIZE 4096
+#define PAYLOAD_MAX 16384
+
 #define MINIMAL_HTTP_RESPONSE_HEADDER "HTTP/1.1 200 OK\r\nContent-Length: 7\r\nContent-Type: text/plain\r\n\n\n\tOk!\n\n"
 
 typedef enum
@@ -17,7 +21,7 @@ typedef enum
 } FILTERS;
 
 // Filters will be defined here. // see dwm config.h
-static const char *filters[NUM_FILTERS][2] = {
+static const char *const filters[NUM_FILTERS][2] = {
     /*               method   client   */
     [TEST_FILTER] = {
         "POST",
@@ -26,7 +30,7 @@ static const char *filters[NUM_FILTERS][2] = {
 };
 
 // Filters will be defined here. // see dwm config.h
-static const void (*actions[NUM_FILTERS])() = {
+static const void (*const actions[NUM_FILTERS])() = {
     /*             function pointer to action */
     [TEST_FILTER] = &test,
 };

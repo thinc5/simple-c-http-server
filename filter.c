@@ -1,9 +1,10 @@
+#include <stdio.h>
+#include <string.h>
+
 #include "http.h"
 #include "config.h"
 
 #include "filter.h"
-
-#include <stdio.h>
 
 void filter_request(HTTP_REQUEST req)
 {

@@ -1,3 +1,5 @@
+#include <stdio.h>
+
 #include "actions.h"
 
 void test(void)
