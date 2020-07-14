@@ -21,26 +21,33 @@
 #include "http.h"
 #include "filter.h"
 
-typedef enum
+typedef enum READ_STATES
 {
-    CONTINUE,
-    FINISHED,
+    CONTINUE_READ,
+    FINISHED_READ,
     NO_DATA_READ,
-    MANUAL_INTERRUPT,
-    UNEXPECTED_CLOSE,
-    INVALID_DATA,
+    MANUALLY_INTERRUPTED_READ,
+    UNEXPECTED_CLOSED_READ,
+    INVALID_DATA_READ,
 } READ_STATES;
+
+static const char *const READ_STATES_STRING[] = {
+    "CONTINUE_READ",
+    "FINISHED_READ",
+    "NO_DATA_READ",
+    "MANUALLY_INTERRUPTED_READ",
+    "UNEXPECTED_CLOSED_READ",
+    "INVALID_DATA_READ",
+};
 
 volatile sig_atomic_t running = true;
 
 void show_server_address(struct sockaddr_in *server_address);
 void display_peer_ip(struct sockaddr *client_address);
-
 READ_STATES read_single_http_message(int s, HTTP_REQUEST *req);
 
 /**
- * Signal handler, catches sigint and terminates the server's
- * socket connection.
+ * Signal handler, catches sigint and terminates the server's socket connection.
  */
 void signal_handler(int signal_number)
 {
@@ -51,16 +58,14 @@ void signal_handler(int signal_number)
 }
 
 /**
- * Single threaded application, which handles incoming TCP traffic
- * via ipv4 looking for whitelisted HTTP POST requests, then performs
- * preditermined tasks.
+ * Single threaded application, which handles incoming TCP traffic via ipv4
+ * looking for whitelisted HTTP requests, then performs preditermined tasks.
  *
  * This program attempts to follow the suckless philosophy and configuration
  * options can be found in config.h.
  */
 int main()
 {
-
     // Create a socket, using ipv4 and tcp.
     int yes = 1;
     int server_socket = socket(AF_INET, SOCK_STREAM, 0);
@@ -94,32 +99,45 @@ int main()
         // Accept any incoming connections.
         struct sockaddr_in client_address;
         socklen_t sock_size = sizeof(struct sockaddr_in);
-        client_socket = accept(server_socket, (struct sockaddr *)&client_address, &sock_size);
+        client_socket = accept(server_socket,
+                               (struct sockaddr *)&client_address, &sock_size);
 
         printf("------ Connection established ------\n");
 
         // Read incoming connection's ip address.
         display_peer_ip((struct sockaddr *)&client_address.sin_addr);
 
-        // We need to keep reading from this socket until we encounter an error, timeout or "Connection: close"
+        // We need to keep reading from this socket until we encounter an
+        // error, timeout or "Connection: close"
         bool connection = true;
         while (connection)
         {
             // Read and validate data if any is avaliable.
-            HTTP_REQUEST request = {0};
-            READ_STATES read_state = read_single_http_message(client_socket, &request);
+            HTTP_REQUEST request = {
+                .version = UNSUPPORTED,
+                .method = INV_METHOD,
+                .path = NULL,
+                .headers = NULL,
+                .header_number = 0,
+                .body = NULL,
+            };
+
+            READ_STATES read_state = read_single_http_message(client_socket,
+                                                              &request);
             switch (read_state)
             {
-            case FINISHED:
-                break;
+            case INVALID_DATA_READ:
+                show_http_request(&request);
             case NO_DATA_READ:
-                // printf("No data read from socket, closing connection\n");
-            case MANUAL_INTERRUPT:
-            case UNEXPECTED_CLOSE:
-            case INVALID_DATA:
-                printf("Packet was invalid or process was interrupted %d.\n", read_state);
+            case MANUALLY_INTERRUPTED_READ:
+            case UNEXPECTED_CLOSED_READ:
+                printf("Error encountered reading packet: %s\n",
+                       READ_STATES_STRING[read_state]);
                 connection = false;
+                if (request.path != NULL)
+                    free(request.path);
                 continue;
+                break;
             default:
                 break;
             }
@@ -128,13 +146,17 @@ int main()
             show_http_request(&request);
 
             // Filter data.
-            filter_request(request);
+            HTTP_RESPONSE res;
+            filter_request(request, &res);
 
             // Action data.
-            send(client_socket, MINIMAL_HTTP_RESPONSE_HEADDER, sizeof(MINIMAL_HTTP_RESPONSE_HEADDER), 0);
+            send(client_socket, MINIMAL_HTTP_RESPONSE_HEADDER,
+                 sizeof(MINIMAL_HTTP_RESPONSE_HEADDER), 0);
 
             // Are we keep-alive?
-            if (strcmp(get_http_header_value(request, "Connection"), "keep-alive") != 0)
+            const char *keep_alive = get_http_header_value(request,
+                                                           "Connection");
+            if (keep_alive == NULL || strcmp(keep_alive, "keep-alive") != 0)
             {
                 connection = false;
             }
@@ -151,7 +173,7 @@ int main()
         close(client_socket);
         client_socket = -1;
 
-        printf("------ Connection closed ------\n");
+        printf("--------- Connection closed --------\n");
     }
 
     printf("Exiting now...\n");
@@ -160,12 +182,13 @@ int main()
 }
 
 /**
- * Continuously read from a provided socket until we read
- * 0 bytes from it. Buffer is copied into an allocated string.
+ * Continuously read from a provided socket until we read 0 bytes from it.
+ * Buffer is copied into an allocated string.
  */
 READ_STATES read_single_http_message(int s, HTTP_REQUEST *req)
 {
-    // Use select to prevent recv from blocking until there is something to read.
+    // Use select to prevent recv from blocking until there is
+    // something to read.
     sigset_t mask;
     sigset_t other_mask;
     sigemptyset(&mask);
@@ -178,8 +201,7 @@ READ_STATES read_single_http_message(int s, HTTP_REQUEST *req)
     pselect(s + 1, &fds, NULL, NULL, &timeout, NULL);
     fcntl(s, F_SETFL, fcntl(s, F_GETFL) | O_NONBLOCK);
 
-    // Actually read from the socket into the buffer.
-    // Temporary buffer.
+    // Actually read from the socket into the temporary buffer.
     char temp_buff[DEFAULT_PAYLOAD_SIZE];
     ssize_t bytes_read = 0;
 
@@ -190,14 +212,14 @@ READ_STATES read_single_http_message(int s, HTTP_REQUEST *req)
     ssize_t total_bytes_read = 0;
 
     // State to keep track of connection.
-    READ_STATES state = CONTINUE;
-    while (state == CONTINUE)
+    READ_STATES state = CONTINUE_READ;
+    while (state == CONTINUE_READ)
     {
         // Have we been interupted mid read?
         if (!running)
         {
-            state = MANUAL_INTERRUPT;
-            continue;
+            state = MANUALLY_INTERRUPTED_READ;
+            break;
         }
 
         // Read into temporary buffer.
@@ -207,15 +229,15 @@ READ_STATES read_single_http_message(int s, HTTP_REQUEST *req)
         // Did we disconnect?
         if (bytes_read == -1)
         {
-            state = UNEXPECTED_CLOSE;
-            continue;
+            state = FINISHED_READ;
+            break;
         }
 
         // Was there anything to read?
         if (bytes_read == 0)
         {
-            state = CONTINUE;
-            continue;
+            state = CONTINUE_READ;
+            break;
         }
 
         // Do we need to reallocate more memory?
@@ -231,23 +253,30 @@ READ_STATES read_single_http_message(int s, HTTP_REQUEST *req)
         total_bytes_read = total_bytes_read + bytes_read;
     }
 
-    printf("Bytes read: %lu\nBody:\n%s\n", total_bytes_read, big_buff);
+    if (state > 1)
+    {
+        free(big_buff);
+        printf("Early state issue: %d\n", state);
+        return state;
+    }
+
     // Process and parse the request.
     if (total_bytes_read < 1)
     {
         printf("no data read?\n");
         state = NO_DATA_READ;
     }
-    else if (!parse_http_request(req, big_buff))
+    HTTP_PARSE_ERRORS parsed = parse_http_request(req, big_buff);
+    printf("Parsed status: %s\n", HTTP_PARSE_ERROR_STRINGS[parsed]);
+    if (parsed)
     {
-        state = UNKNOWN_DATA;
+        state = INVALID_DATA_READ;
     }
 
     free(big_buff);
+    printf("Final state: %d\n", state);
     return state;
 }
-
-// Debug/Helper functions.
 
 /**
  * A simple function to show the server address, given a refernce to a
@@ -265,8 +294,8 @@ void show_server_address(struct sockaddr_in *server_address)
 }
 
 /**
- * Display the connected peer's ip address.
- * Not much use when the connection is proxied.
+ * Display the connected peer's ip address. Not much use when the connection
+ * is proxied.
  */
 void display_peer_ip(struct sockaddr *client_address)
 {

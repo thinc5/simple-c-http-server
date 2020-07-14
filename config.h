@@ -7,6 +7,7 @@
 #define PORT 8123
 
 #define MAX_EVENTS 10
+#define MAX_HEADERS 10
 
 #define DEFAULT_PAYLOAD_SIZE 4096
 #define PAYLOAD_MAX 16384
@@ -16,23 +17,45 @@
 typedef enum
 {
     TEST_FILTER,
+    POST_TEST,
     // DO NOT REMOVE THIS
     NUM_FILTERS,
 } FILTERS;
 
-// Filters will be defined here. // see dwm config.h
-static const char *const filters[NUM_FILTERS][2] = {
-    /*               method   client   */
-    [TEST_FILTER] = {
-        "POST",
-        "0.0.0.0",
-    },
-};
+typedef struct REQUEST_FILTER
+{
+    const HTTP_METHOD method;
+    const char *path;
+    const char *host;
+    HTTP_HEADER headers[MAX_HEADERS];
+    const int num_headers;
+    void (*const action)(HTTP_REQUEST);
+} REQUEST_FILTER;
 
-// Filters will be defined here. // see dwm config.h
-static const void (*const actions[NUM_FILTERS])() = {
-    /*             function pointer to action */
-    [TEST_FILTER] = &test,
+// Filters will be defined here.
+// First string is the method, path, version, then a list of desired headers and values,
+// finally, the body will be passed to the action if needed.
+static const REQUEST_FILTER filters[NUM_FILTERS] = {
+    [TEST_FILTER] = {
+        .method = GET,
+        .path = "/",
+        .host = NULL,
+        .headers = {
+            {.key = "Connection", .value = "keep-alive"},
+        },
+        .num_headers = 1,
+        .action = &test_action,
+    },
+    [POST_TEST] = {
+        .method = POST,
+        .path = "/",
+        .host = NULL,
+        .headers = {
+            {.key = "Connection", .value = "keep-alive"},
+        },
+        .num_headers = 1,
+        .action = &test_action,
+    },
 };
 
 #endif

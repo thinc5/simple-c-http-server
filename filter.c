@@ -6,17 +6,52 @@
 
 #include "filter.h"
 
-void filter_request(HTTP_REQUEST req)
+void filter_request(HTTP_REQUEST req, HTTP_RESPONSE *res)
 {
     for (int i = 0; i < NUM_FILTERS; i++)
     {
-        // TODO: Correct client?
-        // if (strcmp(filters[i][CLIENT], req.method))
         // Correct method?
-        if (strcmp(filters[i][METHOD], HTTP_METHOD_STRING[req.method]) == 0)
+        if (filters[i].method != req.method)
         {
-            // Call the provided function.
-            actions[i]();
+            return;
+        }
+
+        // Correct path?
+        if (filters[i].path != NULL && req.path != NULL &&
+            strcmp(filters[i].path, req.path) != 0)
+        {
+            return;
+        }
+
+        // Correct host?
+        // if (filters[i].host != NULL ||
+        //      strcmp(filters[i].host, req.host) != 0)
+        // {
+        //     return;
+        // }
+
+        // Match headers.
+        int match = filters[i].num_headers;
+        for (int j = 0; j < filters[j].num_headers; j++)
+        {
+            for (int k = 0; k < req.header_number; k++)
+            {
+                if (strcmp(filters[i].headers[j].key, req.headers[k].key) == 0)
+                {
+                    if (strcmp(filters[i].headers[j].value,
+                               req.headers[k].value) == 0)
+                    {
+                        match--;
+                        break;
+                    }
+                    return;
+                }
+            }
+        }
+
+        if (match == 0)
+        {
+            filters[i].action(req);
         }
     }
 }

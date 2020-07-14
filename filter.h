@@ -6,10 +6,11 @@
 typedef enum
 {
     METHOD,
+    PATH,
     CLIENT,
     ACTION
 } FILTER_COLUMN;
 
-void filter_request(HTTP_REQUEST req);
+void filter_request(HTTP_REQUEST req, HTTP_RESPONSE *res);
 
 #endif

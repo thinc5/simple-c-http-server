@@ -1,21 +1,43 @@
 #ifndef HTTP_H
 #define HTTP_H
 
-typedef enum
+typedef enum HTTP_PARSE_ERRORS
 {
+    OK,
+    REFERENCE_ERROR,
+    UNSUPPORTED_VERSION,
+    UNKNOWN_DATA,
+    INVALID_METHOD,
+    PARSE_ERROR_NUM,
+} HTTP_PARSE_ERRORS;
+
+static const char *const HTTP_PARSE_ERROR_STRINGS[PARSE_ERROR_NUM] = {
+    "OK",
+    "REFERENCE_ERROR",
+    "UNSUPPORTED_VERSION",
+    "UNKNOWN_DATA",
+    "INVALID_METHOD",
+};
+
+typedef enum HTTP_VERSION
+{
+    UNSUPPORTED,
     HTTP1,
     HTTP11,
     HTTP2,
-    SUPPORTED_VERSIONS
+    SUPPORTED_VERSIONS,
 } HTTP_VERSION;
 
 static const char *const HTTP_VERSION_STRING[SUPPORTED_VERSIONS] = {
+    "UNSUPPORTED_VERSION",
     "HTTP/1",
     "HTTP/1.1",
-    "HTTP/2"};
+    "HTTP/2",
+};
 
-typedef enum
+typedef enum HTTP_METHOD
 {
+    INV_METHOD,
     GET,
     POST,
     UPDATE,
@@ -23,19 +45,21 @@ typedef enum
     OPTIONS,
     CONNECT,
     HEAD,
-    NUM_METHODS
+    NUM_METHODS,
 } HTTP_METHOD;
 
 static const char *const HTTP_METHOD_STRING[NUM_METHODS] = {
+    "INVALID METHOD",
     "GET",
     "POST",
     "UPDATE",
     "PATCH",
     "OPTIONS",
     "CONNECT",
-    "HEAD"};
+    "HEAD",
+};
 
-typedef enum
+typedef enum HTTP_POSITION
 {
     START_LINE,
     HEADERS,
@@ -66,15 +90,6 @@ typedef struct HTTP_RESPONSE
     unsigned int header_number;
     char *body;
 } HTTP_RESPONSE;
-
-typedef enum
-{
-    OK,
-    REFERENCE_ERROR,
-    UNSUPPORTED_VERSION,
-    UNKNOWN_DATA,
-    INVALID_METHOD
-} HTTP_PARSE_ERRORS;
 
 HTTP_PARSE_ERRORS
 parse_http_request(HTTP_REQUEST *req, char *raw);

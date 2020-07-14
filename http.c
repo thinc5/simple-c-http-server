@@ -13,8 +13,12 @@ parse_request_start_line(HTTP_REQUEST *req, char *start_line)
 {
     char *saveptr = NULL;
     char *start_slice = strtok_r(start_line, " ", &saveptr);
+    if (start_slice == NULL)
+    {
+        return UNKNOWN_DATA;
+    }
     // HTTP method
-    for (HTTP_METHOD method = GET; method <= NUM_METHODS; method++)
+    for (HTTP_METHOD method = GET; method < NUM_METHODS; method++)
     {
         if (req->method == NUM_METHODS)
         {
@@ -26,13 +30,16 @@ parse_request_start_line(HTTP_REQUEST *req, char *start_line)
             break;
         }
     }
-    // printf("Method: %s\n", HTTP_METHOD_STRING[req->method]);
     // Path
     start_slice = strtok_r(NULL, " ", &saveptr);
     req->path = strdup(start_slice);
     // Version
     start_slice = strtok_r(NULL, " ", &saveptr);
-    for (HTTP_VERSION ver = HTTP11; ver <= SUPPORTED_VERSIONS; ver++)
+    if (start_slice == NULL)
+    {
+        return UNKNOWN_DATA;
+    }
+    for (HTTP_VERSION ver = HTTP1; ver < SUPPORTED_VERSIONS; ver++)
     {
         if (ver == SUPPORTED_VERSIONS)
         {
@@ -48,7 +55,7 @@ parse_request_start_line(HTTP_REQUEST *req, char *start_line)
 }
 
 /**
- * Given a string attempt to parse a http header, (key and value)
+ * Given a string attempt to parse a http header, (key and value).
  */
 static bool
 parse_http_header(HTTP_HEADER *hdr, char *header_line)
@@ -63,8 +70,8 @@ parse_http_header(HTTP_HEADER *hdr, char *header_line)
     hdr->key = strdup(buff);
     // Grab the section after the ": "
     buff = strtok_r(NULL, "\r\n", &saveptr);
-    // It appears we need to skip a byte, since the token we get has the space from
-    // when we did the original token...
+    // It appears we need to skip a byte, since the token we get has the space
+    // from when we did the original token...
     buff++;
     hdr->value = strdup(buff);
     return true;
@@ -75,20 +82,21 @@ parse_http_header(HTTP_HEADER *hdr, char *header_line)
  */
 void show_http_request(HTTP_REQUEST *req)
 {
-    printf("----- HTTP Request -----\n");
-    printf("Version: %s\nMethod: %s\nPath: %s\n",
-           HTTP_VERSION_STRING[req->version], HTTP_METHOD_STRING[req->method], req->path);
+    printf("----------- HTTP Request -----------\n");
+    printf("Version:\t%s\nMethod:  \t%s\nPath:   \t%s\n",
+           HTTP_VERSION_STRING[req->version], HTTP_METHOD_STRING[req->method],
+           req->path);
     if (req->header_number)
-        printf("--- Headers ---\n");
+        printf("  ------------ Headers -----------  \n");
     for (int i = 0; i < req->header_number; i++)
     {
-        printf("%s -> %s\n", req->headers[i].key, req->headers[i].value);
+        printf("%s:\t%s\n", req->headers[i].key, req->headers[i].value);
     }
     if (req->body)
     {
-        printf("--- Body ---\n%s\n", req->body);
+        printf("  ------------- Body -------------  \n%s\n", req->body);
     }
-    printf("----------------\n");
+    printf("------------------------------------\n");
 }
 
 /**
@@ -123,7 +131,7 @@ void free_http_request(HTTP_REQUEST *req)
 
 /**
  *  Return a pointer to the key of a http header if it exists in the provided
- *  Request body.
+ *  request body.
  */
 const char *get_http_header_value(HTTP_REQUEST req, const char *key)
 {
@@ -143,12 +151,14 @@ parse_http_request(HTTP_REQUEST *req, char *raw)
 {
     HTTP_PARSE_ERRORS status = OK;
     // Are our pointers valid?
-    if (req == NULL || req == NULL)
+    if (req == NULL || raw == NULL)
     {
         return REFERENCE_ERROR;
     }
+
     // Expected position in request body.
     HTTP_POSITION http_position = START_LINE;
+
     // Split our raw character buffer line by line. (\r\n)
     // Maintain the original string by creating a local copy.
     char *canonical_raw = strdup(raw);
@@ -157,6 +167,7 @@ parse_http_request(HTTP_REQUEST *req, char *raw)
     unsigned int num_headers = 0;
     unsigned int parsed_headers = 0;
     char *body = NULL;
+
     while (slice != NULL && http_position != DONE)
     {
         switch (http_position)
@@ -164,6 +175,7 @@ parse_http_request(HTTP_REQUEST *req, char *raw)
         case START_LINE:
             // Parse the request header.
             status = parse_request_start_line(req, slice);
+            printf("Parse Request Start Status: %d\n", status);
             break;
         case HEADERS:
             // Get -n headers.
@@ -189,12 +201,12 @@ parse_http_request(HTTP_REQUEST *req, char *raw)
                 break;
             }
             req->body = strdup(body);
-
             break;
         default:
             break;
         }
-        // If we are still going after reading the first line, lets check how many headers we have!
+        // If we are still going after reading the first line, lets check how
+        // many headers we have!
         if (http_position == START_LINE)
         {
             char *backupptr = NULL;
@@ -209,7 +221,8 @@ parse_http_request(HTTP_REQUEST *req, char *raw)
             free(local_raw);
             num_headers--;
             // Now we allocate the memory for the headers.
-            req->headers = (HTTP_HEADER *)malloc(sizeof(HTTP_HEADER) * num_headers);
+            req->headers = (HTTP_HEADER *)malloc(sizeof(HTTP_HEADER) *
+                                                 num_headers);
             req->header_number = num_headers;
             http_position++;
         }
