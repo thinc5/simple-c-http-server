@@ -20,7 +20,6 @@
 #include "config.h"
 #include "http.h"
 #include "filter.h"
-
 typedef enum READ_STATES
 {
     CONTINUE_READ,
@@ -127,8 +126,6 @@ int main()
             switch (read_state)
             {
             case INVALID_DATA_READ:
-                show_http_request(&request);
-            case NO_DATA_READ:
             case MANUALLY_INTERRUPTED_READ:
             case UNEXPECTED_CLOSED_READ:
                 printf("Error encountered reading packet: %s\n",
@@ -137,21 +134,19 @@ int main()
                 if (request.path != NULL)
                     free(request.path);
                 continue;
+            case FINISHED_READ:
+                // Show the breakdown of the http request.
+                show_http_request(&request);
+                // Filter data and action if required.
+                HTTP_RESPONSE res;
+                filter_request(client_socket, request, &res);
+                break;
+            case NO_DATA_READ:
+                connection = false;
                 break;
             default:
                 break;
             }
-
-            // Show the breakdown of the http request.
-            show_http_request(&request);
-
-            // Filter data.
-            HTTP_RESPONSE res;
-            filter_request(request, &res);
-
-            // Action data.
-            send(client_socket, MINIMAL_HTTP_RESPONSE_HEADDER,
-                 sizeof(MINIMAL_HTTP_RESPONSE_HEADDER), 0);
 
             // Are we keep-alive?
             const char *keep_alive = get_http_header_value(request,
@@ -159,10 +154,6 @@ int main()
             if (keep_alive == NULL || strcmp(keep_alive, "keep-alive") != 0)
             {
                 connection = false;
-            }
-            else
-            {
-                printf("Keep alive!\n");
             }
 
             // Free data.
@@ -227,16 +218,9 @@ READ_STATES read_single_http_message(int s, HTTP_REQUEST *req)
         bytes_read = recv(s, temp_buff, DEFAULT_PAYLOAD_SIZE, 0);
 
         // Did we disconnect?
-        if (bytes_read == -1)
+        if (bytes_read == -1 || bytes_read == 0)
         {
             state = FINISHED_READ;
-            break;
-        }
-
-        // Was there anything to read?
-        if (bytes_read == 0)
-        {
-            state = CONTINUE_READ;
             break;
         }
 
@@ -253,28 +237,25 @@ READ_STATES read_single_http_message(int s, HTTP_REQUEST *req)
         total_bytes_read = total_bytes_read + bytes_read;
     }
 
-    if (state > 1)
+    if (state > FINISHED_READ)
     {
         free(big_buff);
-        printf("Early state issue: %d\n", state);
         return state;
     }
 
     // Process and parse the request.
     if (total_bytes_read < 1)
     {
-        printf("no data read?\n");
         state = NO_DATA_READ;
     }
+
     HTTP_PARSE_ERRORS parsed = parse_http_request(req, big_buff);
-    printf("Parsed status: %s\n", HTTP_PARSE_ERROR_STRINGS[parsed]);
     if (parsed)
     {
         state = INVALID_DATA_READ;
     }
 
     free(big_buff);
-    printf("Final state: %d\n", state);
     return state;
 }
 

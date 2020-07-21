@@ -175,7 +175,6 @@ parse_http_request(HTTP_REQUEST *req, char *raw)
         case START_LINE:
             // Parse the request header.
             status = parse_request_start_line(req, slice);
-            printf("Parse Request Start Status: %d\n", status);
             break;
         case HEADERS:
             // Get -n headers.

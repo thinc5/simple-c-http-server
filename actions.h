@@ -3,6 +3,8 @@
 
 #include "http.h"
 
-void test_action(HTTP_REQUEST body);
+void ok_action(int client_socket, HTTP_REQUEST req);
+
+void not_found_action(int client_socket, HTTP_REQUEST req);
 
 #endif

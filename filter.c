@@ -2,26 +2,22 @@
 #include <string.h>
 
 #include "http.h"
-#include "config.h"
 
 #include "filter.h"
 
-void filter_request(HTTP_REQUEST req, HTTP_RESPONSE *res)
+void filter_request(int client_socket, HTTP_REQUEST req, HTTP_RESPONSE *res)
 {
+    printf("----------- Filtering -----------\n");
     for (int i = 0; i < NUM_FILTERS; i++)
     {
         // Correct method?
         if (filters[i].method != req.method)
-        {
             return;
-        }
 
         // Correct path?
         if (filters[i].path != NULL && req.path != NULL &&
             strcmp(filters[i].path, req.path) != 0)
-        {
             return;
-        }
 
         // Correct host?
         // if (filters[i].host != NULL ||
@@ -32,7 +28,7 @@ void filter_request(HTTP_REQUEST req, HTTP_RESPONSE *res)
 
         // Match headers.
         int match = filters[i].num_headers;
-        for (int j = 0; j < filters[j].num_headers; j++)
+        for (int j = 0; j < filters[i].num_headers; j++)
         {
             for (int k = 0; k < req.header_number; k++)
             {
@@ -48,10 +44,9 @@ void filter_request(HTTP_REQUEST req, HTTP_RESPONSE *res)
                 }
             }
         }
-
         if (match == 0)
         {
-            filters[i].action(req);
+            filters[i].action(client_socket, req);
         }
     }
 }
