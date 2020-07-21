@@ -8,6 +8,7 @@
 #include <fcntl.h>
 #include <time.h>
 #include <netdb.h>
+#include <errno.h>
 
 #include <sys/select.h>
 #include <sys/socket.h>
@@ -217,8 +218,23 @@ READ_STATES read_single_http_message(int s, HTTP_REQUEST *req)
         memset(temp_buff, '\0', DEFAULT_PAYLOAD_SIZE);
         bytes_read = recv(s, temp_buff, DEFAULT_PAYLOAD_SIZE, 0);
 
+        // Waiting for data, we can continue, no error occurred.
+        if (bytes_read == -1 && (errno == EAGAIN || errno == EWOULDBLOCK))
+        {
+            state = FINISHED_READ;
+            break;
+        }
+
+        // Did we get annother error?
+        if (bytes_read == -1)
+        {
+            perror("Error reading from client:\n");
+            state = UNEXPECTED_CLOSED_READ;
+            break;
+        }
+
         // Did we disconnect?
-        if (bytes_read == -1 || bytes_read == 0)
+        if (bytes_read == 0)
         {
             state = FINISHED_READ;
             break;
