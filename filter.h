@@ -38,14 +38,11 @@ static const REQUEST_FILTER filters[] = {
         .method = GET,
         .path = "/",
         .host = NULL,
-        .headers = {
-            {.key = "Connection", .value = "keep-alive"},
-        },
-        .num_headers = 1,
+        .num_headers = 0,
         .action = ok_action,
     },
     [POST_TEST] = {
-        .method = GET,
+        .method = POST,
         .path = NULL,
         .host = NULL,
         .num_headers = 0,

@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <string.h>
 
 #include <sys/socket.h>
 
@@ -29,21 +30,14 @@ void ok_action(int client_socket, HTTP_REQUEST req)
 
     // Action data.
     send(client_socket, HTTP_OK_RESPONSE,
-         sizeof(HTTP_OK_RESPONSE), 0);
-    printf("Replied:\n%s\n", HTTP_OK_RESPONSE);
+         strlen(HTTP_OK_RESPONSE), 0);
 }
 
 void not_found_action(int client_socket, HTTP_REQUEST req)
 {
-    printf("Test filter action!\n");
-
-    if (req.body)
-    {
-        printf("We have a body\n%s\n", req.body);
-    }
+    printf("404 action!!\n");
 
     // Action data.
     send(client_socket, HTTP_404_RESPONSE,
-         sizeof(HTTP_404_RESPONSE), 0);
-    printf("Replied:\n%s\n", HTTP_404_RESPONSE);
+         strlen(HTTP_OK_RESPONSE), 0);
 }
