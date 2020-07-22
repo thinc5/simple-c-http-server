@@ -1,26 +1,65 @@
-CC=gcc
-C_FLAGS=--std=gnu11 -Wall -pedantic -g
+# executable name
+TARGET			:= http-server
+# compiler to use
+CC				:= gcc
+# compiler flags
+CFLAGS   		:= -std=gnu11 -Wall -pedantic -MD
+# linker to use
+LINKER   		:= gcc
+# linking flags
+LFLAGS			:= -I./
+# directories
+SRCDIR   		:= .
+INCDIR			:= .
+OBJDIR			:= obj
 
-all: actions.o http.o filter.o http-webhook.o http-webhook 
+#-------------- Helper scripts
+rm				:= rm -rf
+mkdir			:= mkdir -p
+findc			:= du -a $(SRCDIR) | grep -E '\.(c)$$' | awk '{print $$2}'
+findh			:= du -a $(INCDIR) | grep -E '\.(h)$$' | awk '{print $$2}'
 
-http-webhook: http-webhook.o http.o
-	@$(CC) $(C_FLAGS) http-webhook.o actions.o http.o filter.o -g -o http-webhook
+#-------------- Populate build sources
+SOURCES  		:= $(shell $(findc))
+INCLUDES 		:= $(shell $(findh))
 
-http-webhook.o: main.c
-	@$(CC) $(C_FLAGS) -c main.c -o http-webhook.o
+# What are my objects?
+OBJECTS  		:= $(SOURCES:$(SRCDIR)/%.c=$(OBJDIR)/%.o)
+$(shell $(mkdir) $(OBJDIR))
 
-filter.o: filter.h filter.c
-	@$(CC) $(C_FLAGS) -c filter.c -o filter.o
+#-------------- Rules
+# default rules
+all: build
 
-http.o: http.h http.c
-	@$(CC) $(C_FLAGS) -c http.c -o http.o
+# debug build
+debug: CFLAGS += -DDEBUG -g
+debug: LFLAGS += -DDEBUG -g
+debug: build
 
-actions.o: actions.h actions.c
-	@$(CC) $(C_FLAGS) -c actions.c -o actions.o
+# compile and link
+build: $(OBJECTS) $(TARGET)
 
-.PHONY: clean debug
+# rebuild.
+rebuild: clean
+	$(MAKE) build
 
-debug: all
+# compile objects.
+$(OBJECTS): $(OBJDIR)/%.o : $(SRCDIR)/%.c
+	@$(CC) $(CFLAGS) -c $< -o $@
+	$(info Compiled $<)
 
+# link objects.
+$(TARGET): $(OBJECTS)
+	@$(LINKER) $(OBJECTS) $(LFLAGS) -o $@
+	$(info Linking complete!)
+
+.PHONY:	clean
+
+# clean all building materials.
 clean:
-	rm -f *.o http-webhook vgcore*
+	@$(rm) $(OBJDIR)
+	@echo "Cleanup complete!"
+	@$(rm) $(TARGET)
+	@echo "Executable removed!"
+
+-include $(OBJECTS:.o=.d)

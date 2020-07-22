@@ -30,9 +30,9 @@ typedef enum HTTP_VERSION
 
 static const char *const HTTP_VERSION_STRING[SUPPORTED_VERSIONS] = {
     "UNSUPPORTED_VERSION",
-    "HTTP/1",
+    "HTTP/1.0",
     "HTTP/1.1",
-    "HTTP/2",
+    "HTTP/2.0",
 };
 
 typedef enum HTTP_METHOD

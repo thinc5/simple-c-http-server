@@ -9,6 +9,11 @@
 static const char *HTTP_OK_RESPONSE =
     "HTTP/1.1 200 OK\r\n"   // Status-Line
     "Connection: close\r\n" // Headers
+    "\r\n";                 // Content break
+
+static const char *HTTP_OK_TEXT_RESPONSE =
+    "HTTP/1.1 200 OK\r\n"   // Status-Line
+    "Connection: close\r\n" // Headers
     "Content-Length: 7\r\n"
     "Content-Type: text/plain\r\n"
     "\r\n"         // Content break
@@ -18,6 +23,13 @@ static const char *HTTP_404_RESPONSE =
     "HTTP/1.1 404 Not Found\r\n"
     "Connection: close\r\n"
     "\r\n";
+
+void generic_action(int client_socket, HTTP_REQUEST req)
+{
+    // Action data.
+    send(client_socket, HTTP_OK_RESPONSE,
+         strlen(HTTP_OK_RESPONSE), 0);
+}
 
 void ok_action(int client_socket, HTTP_REQUEST req)
 {
@@ -29,8 +41,8 @@ void ok_action(int client_socket, HTTP_REQUEST req)
     }
 
     // Action data.
-    send(client_socket, HTTP_OK_RESPONSE,
-         strlen(HTTP_OK_RESPONSE), 0);
+    send(client_socket, HTTP_OK_TEXT_RESPONSE,
+         strlen(HTTP_OK_TEXT_RESPONSE), 0);
 }
 
 void not_found_action(int client_socket, HTTP_REQUEST req)
@@ -39,7 +51,7 @@ void not_found_action(int client_socket, HTTP_REQUEST req)
 
     // Action data.
     send(client_socket, HTTP_404_RESPONSE,
-         strlen(HTTP_OK_RESPONSE), 0);
+         strlen(HTTP_404_RESPONSE), 0);
 }
 
 void github_action(int client_socket, HTTP_REQUEST req)
@@ -53,6 +65,6 @@ void github_action(int client_socket, HTTP_REQUEST req)
     }
 
     // Action data.
-    send(client_socket, HTTP_OK_RESPONSE,
-         strlen(HTTP_OK_RESPONSE), 0);
+    send(client_socket, HTTP_OK_TEXT_RESPONSE,
+         strlen(HTTP_OK_TEXT_RESPONSE), 0);
 }

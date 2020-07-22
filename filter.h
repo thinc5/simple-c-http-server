@@ -2,6 +2,7 @@
 #define FILTER_H
 
 #include "config.h"
+#include "actions.h"
 #include "http.h"
 
 typedef enum

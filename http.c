@@ -2,6 +2,7 @@
 #include <stdbool.h>
 #include <string.h>
 #include <stdlib.h>
+#include <ctype.h>
 
 #include "http.h"
 
@@ -65,9 +66,15 @@ parse_http_header(HTTP_HEADER *hdr, char *header_line)
     hdr->value = NULL;
     char *saveptr = NULL;
     char *buff = NULL;
+
     // Grab the section before the ": "
     buff = strtok_r(header_line, ":\\ ", &saveptr);
     hdr->key = strdup(buff);
+
+    // Iterate over the header to lowercase it all.
+    for (int i = 0; hdr->key[i]; i++)
+        hdr->key[i] = tolower(hdr->key[i]);
+
     // Grab the section after the ": "
     buff = strtok_r(NULL, "\r\n", &saveptr);
     // It appears we need to skip a byte, since the token we get has the space
@@ -87,14 +94,14 @@ void show_http_request(HTTP_REQUEST *req)
            HTTP_VERSION_STRING[req->version], HTTP_METHOD_STRING[req->method],
            req->path);
     if (req->header_number)
-        printf("  ------------ Headers -----------  \n");
+        printf("  ------------ Headers -----------\n");
     for (int i = 0; i < req->header_number; i++)
     {
-        printf("%s:\t%s\n", req->headers[i].key, req->headers[i].value);
+        printf("  %s: %s\n", req->headers[i].key, req->headers[i].value);
     }
     if (req->body)
     {
-        printf("  ------------- Body -------------  \n%s\n", req->body);
+        printf("  ------------- Body -------------\n%s\n", req->body);
     }
     printf("------------------------------------\n");
 }

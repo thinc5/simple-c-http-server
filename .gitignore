@@ -1,5 +1,7 @@
 *.o
 http-webhook
+http-server
 .vscode
 vgcore*
 demo.txt
+obj

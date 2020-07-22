@@ -1,8 +1,6 @@
 #ifndef CONFIG_H
 #define CONFIG_H
 
-#include "actions.h"
-
 #define LISTEN_ADDR "127.0.0.1"
 #define PORT 8123
 
