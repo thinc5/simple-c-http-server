@@ -19,6 +19,8 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
+#include "log.h"
+
 #include "config.h"
 #include "http.h"
 #include "filter.h"
@@ -32,6 +34,7 @@ typedef enum READ_STATES
     INVALID_DATA_READ,
 } READ_STATES;
 
+#ifndef RELEASE
 static const char *const READ_STATES_STRING[] = {
     "CONTINUE_READ",
     "FINISHED_READ",
@@ -40,6 +43,7 @@ static const char *const READ_STATES_STRING[] = {
     "UNEXPECTED_CLOSED_READ",
     "INVALID_DATA_READ",
 };
+#endif
 
 volatile sig_atomic_t running = true;
 
@@ -96,8 +100,8 @@ int main()
     ev.data.fd = server_socket;
     epoll_ctl(epollfd, EPOLL_CTL_ADD, server_socket, &ev);
 
-    // Register signal handler, we can do this now since we are prepared
-    // to exit gracefully.
+    // Register signal handler, we can do this now since we are prepared to
+    // exit gracefully.
     struct sigaction sig_int;
     memset(&sig_int, 0, sizeof(sig_int));
     sig_int.sa_handler = signal_handler;
@@ -105,7 +109,6 @@ int main()
 
     // Handle all incoming connections.
     int client_socket;
-
     while (running)
     {
         // Wait for an incoming connection on the server socket.
@@ -122,9 +125,9 @@ int main()
             {
                 struct sockaddr_in client_address;
                 socklen_t sock_size = sizeof(struct sockaddr_in);
-                client_socket = accept(server_socket,
-                                       (struct sockaddr *)&client_address,
-                                       &sock_size);
+                client_socket =
+                    accept(server_socket, (struct sockaddr *)&client_address,
+                           &sock_size);
                 if (client_socket == -1)
                 {
                     perror("Error accepting the connection.");
@@ -141,11 +144,9 @@ int main()
                 ev.data.fd = client_socket;
                 if (epoll_ctl(epollfd, EPOLL_CTL_ADD, client_socket,
                               &ev) == -1)
-                {
                     perror("epoll_ctl: client_socket");
-                }
 
-                printf("------ Connection established ------\n");
+                INFO_LOG("------ Connection established ------\n");
 
                 // Read incoming connection's ip address.
                 display_peer_ip((struct sockaddr *)&client_address.sin_addr);
@@ -166,16 +167,20 @@ int main()
                     .body = NULL,
                 };
 
-                READ_STATES read_state = read_single_http_message(client_socket,
-                                                                  &request);
+                if (client_socket == -1)
+                    continue;
+
+                READ_STATES read_state =
+                    read_single_http_message(client_socket, &request);
+
                 switch (read_state)
                 {
                 case INVALID_DATA_READ:
                 case MANUALLY_INTERRUPTED_READ:
                 case UNEXPECTED_CLOSED_READ:
                 case NO_DATA_READ:
-                    printf("Error encountered reading packet: %s\n",
-                           READ_STATES_STRING[read_state]);
+                    ERROR_LOG("Error encountered reading packet: %s\n",
+                              READ_STATES_STRING[read_state]);
                     connection = false;
                     if (request.path != NULL)
                         free(request.path);
@@ -187,12 +192,11 @@ int main()
                     HTTP_RESPONSE res;
                     filter_request(client_socket, request, &res);
                     // Are we keep-alive?
-                    const char *keep_alive = get_http_header_value(request,
-                                                                   "Connection");
-                    if (keep_alive == NULL || strcmp(keep_alive, "keep-alive") != 0)
-                    {
+                    const char *keep_alive =
+                        get_http_header_value(request, "Connection");
+                    if (keep_alive == NULL ||
+                        strcmp(keep_alive, "keep-alive") != 0)
                         connection = false;
-                    }
                     break;
                 default:
                     break;
@@ -202,7 +206,7 @@ int main()
                 {
                     close(client_socket);
                     client_socket = -1;
-                    printf("--------- Connection closed --------\n");
+                    INFO_LOG("--------- Connection closed --------\n");
                 }
 
                 // Free data.
@@ -211,7 +215,7 @@ int main()
         }
     }
 
-    printf("Exiting now...\n");
+    INFO_LOG("Exiting now...\n");
     close(server_socket);
     return 0;
 }
@@ -257,7 +261,7 @@ READ_STATES read_single_http_message(int s, HTTP_REQUEST *req)
         // Did we get annother error?
         if (bytes_read == -1)
         {
-            perror("Error reading from client:\n");
+            perror("Error reading from client\n");
             state = UNEXPECTED_CLOSED_READ;
             break;
         }
@@ -313,10 +317,10 @@ void show_server_address(struct sockaddr_in *server_address)
     char host_buffer[INET6_ADDRSTRLEN];
     char port_buffer[NI_MAXSERV];
     socklen_t addr_len = sizeof(*server_address);
-    getnameinfo((struct sockaddr *)server_address, addr_len,
-                host_buffer, sizeof(host_buffer), port_buffer,
-                sizeof(port_buffer), NI_NUMERICHOST);
-    printf("Listening on %s:%s\n", host_buffer, port_buffer);
+    getnameinfo((struct sockaddr *)server_address, addr_len, host_buffer,
+                sizeof(host_buffer), port_buffer, sizeof(port_buffer),
+                NI_NUMERICHOST);
+    INFO_LOG("Listening on %s:%s\n", host_buffer, port_buffer);
 }
 
 /**
@@ -328,5 +332,5 @@ void display_peer_ip(struct sockaddr *client_address)
     char buff[100];
     socklen_t size = 100;
     inet_ntop(AF_INET, client_address, buff, size);
-    printf("Connection from: %s\n", buff);
+    INFO_LOG("Connection from: %s\n", buff);
 }

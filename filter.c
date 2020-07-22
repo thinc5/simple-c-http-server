@@ -1,6 +1,8 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "log.h"
+
 #include "http.h"
 
 #include "actions.h"
@@ -8,7 +10,7 @@
 
 void filter_request(int client_socket, HTTP_REQUEST req, HTTP_RESPONSE *res)
 {
-    printf("------------ Filtering -------------\n");
+    DEBUG_LOG("------------ Filtering -------------\n");
     for (int i = 0; i < NUM_FILTERS; i++)
     {
         // Correct method?
@@ -55,8 +57,8 @@ void filter_request(int client_socket, HTTP_REQUEST req, HTTP_RESPONSE *res)
     }
 
     // No match, we return a generic 200.
-    printf("No matches, proceeding with standard 404\n");
+    DEBUG_LOG("No matches, proceeding with standard 404\n");
     not_found_action(client_socket, req);
-    printf("------------------------------------!\n");
+    DEBUG_LOG("------------------------------------!\n");
     return;
 }

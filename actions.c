@@ -1,7 +1,12 @@
 #include <stdio.h>
 #include <string.h>
+#include <unistd.h>
+#include <signal.h>
 
 #include <sys/socket.h>
+#include <sys/stat.h>
+
+#include "log.h"
 
 #include "http.h"
 #include "actions.h"
@@ -24,6 +29,12 @@ static const char *HTTP_404_RESPONSE =
     "Connection: close\r\n"
     "\r\n";
 
+static const inline int file_exists(const char *path)
+{
+    struct stat buffer;
+    return (stat(path, &buffer) == 0);
+}
+
 void generic_action(int client_socket, HTTP_REQUEST req)
 {
     // Action data.
@@ -33,11 +44,11 @@ void generic_action(int client_socket, HTTP_REQUEST req)
 
 void ok_action(int client_socket, HTTP_REQUEST req)
 {
-    printf("Ok action!\n");
+    DEBUG_LOG("Ok action!\n");
 
     if (req.body)
     {
-        printf("We have a body\n%s\n", req.body);
+        DEBUG_LOG("We have a body\n%s\n", req.body);
     }
 
     // Action data.
@@ -47,7 +58,7 @@ void ok_action(int client_socket, HTTP_REQUEST req)
 
 void not_found_action(int client_socket, HTTP_REQUEST req)
 {
-    printf("404 action!!\n");
+    DEBUG_LOG("404 action!!\n");
 
     // Action data.
     send(client_socket, HTTP_404_RESPONSE,
@@ -56,14 +67,33 @@ void not_found_action(int client_socket, HTTP_REQUEST req)
 
 void github_action(int client_socket, HTTP_REQUEST req)
 {
-    printf("GitHub Webhook action!\n");
+    static const char *script_path = "./update_self.sh";
+
+    DEBUG_LOG("GitHub Webhook action!\n");
 
     // Would parse the body here.
     if (req.body)
-    {
-        printf("We have a body\n%s\n", req.body);
-    }
+        DEBUG_LOG("We have a body\n%s\n", req.body);
 
+    // Perform the actual "action".
+    if (file_exists(script_path))
+    {
+        int pid = fork();
+        if (pid == 0)
+        {
+            DEBUG_LOG("Child process!\n");
+            close(1);
+            close(2);
+            execl("/bin/sh", "sh", script_path, NULL);
+            // If exec fails we terminate the process.
+            kill(getpid(), SIGKILL);
+        }
+    }
+    else
+    {
+        DEBUG_LOG("Error: file %s not found\n", script_path);
+    }
+    DEBUG_LOG("Child should not get here....\n");
     // Action data.
     send(client_socket, HTTP_OK_TEXT_RESPONSE,
          strlen(HTTP_OK_TEXT_RESPONSE), 0);

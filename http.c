@@ -4,6 +4,8 @@
 #include <stdlib.h>
 #include <ctype.h>
 
+#include "log.h"
+
 #include "http.h"
 
 /**
@@ -89,21 +91,21 @@ parse_http_header(HTTP_HEADER *hdr, char *header_line)
  */
 void show_http_request(HTTP_REQUEST *req)
 {
-    printf("----------- HTTP Request -----------\n");
-    printf("Version:\t%s\nMethod:  \t%s\nPath:   \t%s\n",
-           HTTP_VERSION_STRING[req->version], HTTP_METHOD_STRING[req->method],
-           req->path);
+    DEBUG_LOG("----------- HTTP Request -----------\n");
+    DEBUG_LOG("Version:\t%s\n", HTTP_VERSION_STRING[req->version]);
+    DEBUG_LOG("Method:  \t%s\n", HTTP_METHOD_STRING[req->method]);
+    DEBUG_LOG("Path:   \t%s\n", req->path);
     if (req->header_number)
-        printf("  ------------ Headers -----------\n");
+        DEBUG_LOG("  ------------ Headers -----------\n");
     for (int i = 0; i < req->header_number; i++)
     {
-        printf("  %s: %s\n", req->headers[i].key, req->headers[i].value);
+        DEBUG_LOG("  %s: %s\n", req->headers[i].key, req->headers[i].value);
     }
     if (req->body)
     {
-        printf("  ------------- Body -------------\n%s\n", req->body);
+        DEBUG_LOG("  ------------- Body -------------\n%s\n", req->body);
     }
-    printf("------------------------------------\n");
+    DEBUG_LOG("------------------------------------\n");
 }
 
 /**
@@ -217,7 +219,7 @@ parse_http_request(HTTP_REQUEST *req, char *raw)
         {
             char *backupptr = NULL;
             char *local_raw = strndup(raw, strlen(raw));
-            // printf("raw:\n%s\n", local_raw);
+            // DEBUG_LOG("raw:\n%s\n", local_raw);
             char *header_slice = strtok_r(local_raw, "\r\n", &backupptr);
             while (header_slice != NULL && strcmp(header_slice, "\n") != 0)
             {
@@ -238,7 +240,7 @@ parse_http_request(HTTP_REQUEST *req, char *raw)
         {
             free(canonical_raw);
             free_http_request(req);
-            printf("Status: %d\n", status);
+            DEBUG_LOG("Status: %d\n", status);
             return status;
         }
         // Get the next line.

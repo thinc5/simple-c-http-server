@@ -5,7 +5,7 @@
 #include "actions.h"
 #include "http.h"
 
-typedef enum
+typedef enum FILTER_COLUMN
 {
     METHOD,
     PATH,
@@ -13,10 +13,9 @@ typedef enum
     ACTION
 } FILTER_COLUMN;
 
-typedef enum
+typedef enum FILTERS
 {
     TEST_FILTER,
-    POST_TEST,
     // DO NOT REMOVE THIS
     GITHUB_EXAMPLE,
     NUM_FILTERS,
@@ -33,8 +32,8 @@ typedef struct REQUEST_FILTER
 } REQUEST_FILTER;
 
 // Filters will be defined here.
-// First string is the method, path, version, then a list of desired headers and values,
-// finally, the body will be passed to the action if needed.
+// First string is the method, path, version, then a list of desired headers
+// and values, finally, the body will be passed to the action if needed.
 static const REQUEST_FILTER filters[] = {
     [TEST_FILTER] = {
         .method = GET,
@@ -43,23 +42,16 @@ static const REQUEST_FILTER filters[] = {
         .num_headers = 0,
         .action = ok_action,
     },
-    [POST_TEST] = {
-        .method = POST,
-        .path = NULL,
-        .host = NULL,
-        .num_headers = 0,
-        .action = not_found_action,
-    },
     [GITHUB_EXAMPLE] = {
         .method = POST,
         .path = "/",
         .host = NULL,
         .headers = {
-            {"X-GitHub-Event", "push"},
-            {"User-Agent", "GitHub-Hookshot/68e1230"},
+            {"x-github-event", "push"},
+            {"user-agent", "GitHub-Hookshot/68e1230"},
             {"content-type", "application/x-www-form-urlencoded"},
         },
-        .num_headers = 1,
+        .num_headers = 3,
         .action = github_action,
     }};
 

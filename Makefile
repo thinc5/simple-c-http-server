@@ -1,3 +1,4 @@
+#-------------- Config
 # executable name
 TARGET			:= http-server
 # compiler to use
@@ -28,7 +29,6 @@ OBJECTS  		:= $(SOURCES:$(SRCDIR)/%.c=$(OBJDIR)/%.o)
 $(shell $(mkdir) $(OBJDIR))
 
 #-------------- Rules
-# default rules
 all: build
 
 # debug build
@@ -36,30 +36,39 @@ debug: CFLAGS += -DDEBUG -g
 debug: LFLAGS += -DDEBUG -g
 debug: build
 
+# release build
+release: CFLAGS += -DRELEASE -O3
+release: build
+
 # compile and link
 build: $(OBJECTS) $(TARGET)
 
 # rebuild.
 rebuild: clean
-	$(MAKE) build
+	@$(MAKE) build
 
 # compile objects.
 $(OBJECTS): $(OBJDIR)/%.o : $(SRCDIR)/%.c
 	@$(CC) $(CFLAGS) -c $< -o $@
-	$(info Compiled $<)
+	$(info Compiled $< -> $@)
 
 # link objects.
 $(TARGET): $(OBJECTS)
 	@$(LINKER) $(OBJECTS) $(LFLAGS) -o $@
-	$(info Linking complete!)
+	$(info Linking complete -> $(TARGET))
 
-.PHONY:	clean
+.PHONY:	clean count
 
 # clean all building materials.
 clean:
 	@$(rm) $(OBJDIR)
-	@echo "Cleanup complete!"
+	@echo "Objects removed!"
 	@$(rm) $(TARGET)
 	@echo "Executable removed!"
+
+# display the current word count.
+count:
+	@echo "Word count:"
+	@wc -l *.c *.h
 
 -include $(OBJECTS:.o=.d)
