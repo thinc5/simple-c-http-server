@@ -2,7 +2,7 @@
 A simple http server written in C to consume http requests and do things if those requests meet criteria specified in `filter.h`
 
 ## Rationale
-Can I build a small binary that largely follows the (suckless)[https://suckless.org/philosophy/] philosophy which can handle my limited continuous integration needs?
+Can I build a small binary that largely follows the [suckless philosophy](https://suckless.org/philosophy/) which can handle my limited continuous integration needs?
 
 ## Building
 
