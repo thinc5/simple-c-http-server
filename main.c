@@ -15,6 +15,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/epoll.h>
+#include <sys/timerfd.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
@@ -66,6 +67,13 @@ void signal_handler(int signal_number)
  */
 int main()
 {
+    // We are going to use epoll to handle events on the server socket and all
+    // incoming client sockets.
+    struct epoll_event ev, events[MAX_EVENTS];
+    // Not required but just prevents valgrind warning :).
+    memset(&ev.data, '\0', sizeof(epoll_data_t));
+    int epollfd, num_fds;
+
     // Create a socket, using ipv4 and tcp.
     int yes = 1;
     int server_socket = socket(AF_INET, SOCK_STREAM, 0);
@@ -82,10 +90,14 @@ int main()
     // Show the address we are listening on.
     show_server_address(&address);
 
-    /**
-     * Register signal handler, we can do this now since we are prepared
-     * to exit gracefully.
-     */
+    // Initialize the epoll struct and register the server socket.
+    epollfd = epoll_create1(0);
+    ev.events = EPOLLIN;
+    ev.data.fd = server_socket;
+    epoll_ctl(epollfd, EPOLL_CTL_ADD, server_socket, &ev);
+
+    // Register signal handler, we can do this now since we are prepared
+    // to exit gracefully.
     struct sigaction sig_int;
     memset(&sig_int, 0, sizeof(sig_int));
     sig_int.sa_handler = signal_handler;
@@ -96,76 +108,107 @@ int main()
 
     while (running)
     {
-        // Accept any incoming connections.
-        struct sockaddr_in client_address;
-        socklen_t sock_size = sizeof(struct sockaddr_in);
-        client_socket = accept(server_socket,
-                               (struct sockaddr *)&client_address, &sock_size);
+        // Wait for an incoming connection on the server socket.
+        num_fds = epoll_wait(epollfd, events, MAX_EVENTS, -1);
+        // Encountered error waiting for event.
+        if (num_fds == -1)
+            perror("epoll_wait");
 
-        printf("------ Connection established ------\n");
-
-        // Read incoming connection's ip address.
-        display_peer_ip((struct sockaddr *)&client_address.sin_addr);
-
-        // We need to keep reading from this socket until we encounter an
-        // error, timeout or "Connection: close"
-        bool connection = true;
-        while (connection)
+        // Iterate over the returned number of fds
+        for (int n = 0; n < num_fds; n++)
         {
-            // Read and validate data if any is avaliable.
-            HTTP_REQUEST request = {
-                .version = UNSUPPORTED,
-                .method = INV_METHOD,
-                .path = NULL,
-                .headers = NULL,
-                .header_number = 0,
-                .body = NULL,
-            };
-
-            READ_STATES read_state = read_single_http_message(client_socket,
-                                                              &request);
-            switch (read_state)
+            // Are we handling events from the server socket? (Connections?)
+            if (events[n].data.fd == server_socket)
             {
-            case INVALID_DATA_READ:
-            case MANUALLY_INTERRUPTED_READ:
-            case UNEXPECTED_CLOSED_READ:
-                printf("Error encountered reading packet: %s\n",
-                       READ_STATES_STRING[read_state]);
-                connection = false;
-                if (request.path != NULL)
-                    free(request.path);
-                continue;
-            case FINISHED_READ:
-                // Show the breakdown of the http request.
-                show_http_request(&request);
-                // Filter data and action if required.
-                HTTP_RESPONSE res;
-                filter_request(client_socket, request, &res);
-                break;
-            case NO_DATA_READ:
-                connection = false;
-                break;
-            default:
-                break;
-            }
+                struct sockaddr_in client_address;
+                socklen_t sock_size = sizeof(struct sockaddr_in);
+                client_socket = accept(server_socket,
+                                       (struct sockaddr *)&client_address,
+                                       &sock_size);
+                if (client_socket == -1)
+                {
+                    perror("Error accepting the connection.");
+                    running = false;
+                    continue;
+                }
 
-            // Are we keep-alive?
-            const char *keep_alive = get_http_header_value(request,
-                                                           "Connection");
-            if (keep_alive == NULL || strcmp(keep_alive, "keep-alive") != 0)
+                // Set socket as non blocking.
+                fcntl(client_socket, F_SETFL,
+                      fcntl(client_socket, F_GETFL) | O_NONBLOCK);
+
+                // Add socket to epoll.
+                ev.events = EPOLLIN | EPOLLET;
+                ev.data.fd = client_socket;
+                if (epoll_ctl(epollfd, EPOLL_CTL_ADD, client_socket,
+                              &ev) == -1)
+                {
+                    perror("epoll_ctl: client_socket");
+                }
+
+                printf("------ Connection established ------\n");
+
+                // Read incoming connection's ip address.
+                display_peer_ip((struct sockaddr *)&client_address.sin_addr);
+            }
+            else
             {
-                connection = false;
-            }
+                // Only other sockets are clients.
+                // Are we reading or disconnecting?
+                int connection = true;
 
-            // Free data.
-            free_http_request(&request);
+                // Read and validate data if any is avaliable.
+                HTTP_REQUEST request = {
+                    .version = UNSUPPORTED,
+                    .method = INV_METHOD,
+                    .path = NULL,
+                    .headers = NULL,
+                    .header_number = 0,
+                    .body = NULL,
+                };
+
+                READ_STATES read_state = read_single_http_message(client_socket,
+                                                                  &request);
+                switch (read_state)
+                {
+                case INVALID_DATA_READ:
+                case MANUALLY_INTERRUPTED_READ:
+                case UNEXPECTED_CLOSED_READ:
+                case NO_DATA_READ:
+                    printf("Error encountered reading packet: %s\n",
+                           READ_STATES_STRING[read_state]);
+                    connection = false;
+                    if (request.path != NULL)
+                        free(request.path);
+                    break;
+                case FINISHED_READ:
+                    // Show the breakdown of the http request.
+                    show_http_request(&request);
+                    // Filter data and action if required.
+                    HTTP_RESPONSE res;
+                    filter_request(client_socket, request, &res);
+                    // Are we keep-alive?
+                    const char *keep_alive = get_http_header_value(request,
+                                                                   "Connection");
+                    if (keep_alive == NULL || strcmp(keep_alive, "keep-alive") != 0)
+                    {
+                        connection = false;
+                    }
+                    break;
+                default:
+                    break;
+                }
+
+                if (connection == false)
+                {
+                    close(client_socket);
+                    client_socket = -1;
+                    printf("--------- Connection closed --------\n");
+                }
+
+                // Free data.
+                free_http_request(&request);
+            }
         }
-
-        // Close the connection.
-        close(client_socket);
-        client_socket = -1;
-
-        printf("--------- Connection closed --------\n");
     }
 
     printf("Exiting now...\n");
@@ -179,21 +222,7 @@ int main()
  */
 READ_STATES read_single_http_message(int s, HTTP_REQUEST *req)
 {
-    // Use select to prevent recv from blocking until there is
-    // something to read.
-    sigset_t mask;
-    sigset_t other_mask;
-    sigemptyset(&mask);
-    sigaddset(&mask, SIGINT);
-    sigprocmask(1, &mask, &other_mask);
-    fd_set fds;
-    FD_ZERO(&fds);
-    FD_SET(s, &fds);
-    struct timespec timeout = {.tv_nsec = 3000};
-    pselect(s + 1, &fds, NULL, NULL, &timeout, NULL);
-    fcntl(s, F_SETFL, fcntl(s, F_GETFL) | O_NONBLOCK);
-
-    // Actually read from the socket into the temporary buffer.
+    // Read from the socket into the temporary buffer.
     char temp_buff[DEFAULT_PAYLOAD_SIZE];
     ssize_t bytes_read = 0;
 

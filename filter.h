@@ -17,6 +17,7 @@ typedef enum
     TEST_FILTER,
     POST_TEST,
     // DO NOT REMOVE THIS
+    GITHUB_EXAMPLE,
     NUM_FILTERS,
 } FILTERS;
 
@@ -48,7 +49,18 @@ static const REQUEST_FILTER filters[] = {
         .num_headers = 0,
         .action = not_found_action,
     },
-};
+    [GITHUB_EXAMPLE] = {
+        .method = POST,
+        .path = "/",
+        .host = NULL,
+        .headers = {
+            {"X-GitHub-Event", "push"},
+            {"User-Agent", "GitHub-Hookshot/68e1230"},
+            {"content-type", "application/x-www-form-urlencoded"},
+        },
+        .num_headers = 1,
+        .action = ok_action,
+    }};
 
 void filter_request(int client_socket, HTTP_REQUEST req, HTTP_RESPONSE *res);
 
