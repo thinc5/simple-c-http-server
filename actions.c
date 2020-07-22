@@ -12,7 +12,7 @@
 #include "actions.h"
 
 static const char *HTTP_OK_RESPONSE =
-    "HTTP/1.1 200 OK\r\n"   // Status-Line
+    "HTTP/1.1 204 OK\r\n"   // Status-Line
     "Connection: close\r\n" // Headers
     "\r\n";                 // Content break
 
@@ -42,10 +42,10 @@ void generic_action(int client_socket, HTTP_REQUEST req)
          strlen(HTTP_OK_RESPONSE), 0);
 }
 
+// A generic 204, let the client know that we accepted the message, but there
+// is no content.
 void ok_action(int client_socket, HTTP_REQUEST req)
 {
-    DEBUG_LOG("Ok action!\n");
-
     if (req.body)
     {
         DEBUG_LOG("We have a body\n%s\n", req.body);
@@ -56,6 +56,7 @@ void ok_action(int client_socket, HTTP_REQUEST req)
          strlen(HTTP_OK_TEXT_RESPONSE), 0);
 }
 
+// Error processing or no match, simply a 404.
 void not_found_action(int client_socket, HTTP_REQUEST req)
 {
     DEBUG_LOG("404 action!!\n");
@@ -81,9 +82,6 @@ void github_action(int client_socket, HTTP_REQUEST req)
         int pid = fork();
         if (pid == 0)
         {
-            DEBUG_LOG("Child process!\n");
-            close(1);
-            close(2);
             execl("/bin/sh", "sh", script_path, NULL);
             // If exec fails we terminate the process.
             kill(getpid(), SIGKILL);
@@ -93,8 +91,7 @@ void github_action(int client_socket, HTTP_REQUEST req)
     {
         DEBUG_LOG("Error: file %s not found\n", script_path);
     }
-    DEBUG_LOG("Child should not get here....\n");
     // Action data.
-    send(client_socket, HTTP_OK_TEXT_RESPONSE,
-         strlen(HTTP_OK_TEXT_RESPONSE), 0);
+    send(client_socket, HTTP_OK_RESPONSE,
+         strlen(HTTP_OK_RESPONSE), 0);
 }
