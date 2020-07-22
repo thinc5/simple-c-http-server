@@ -1,10 +1,23 @@
 # simple-c-http-server
-A very, simple http server written in C to consume github webhooks and do things.
+A simple http server written in C to consume http requests and do things if those requests meet criteria specified in `filter.h`
 
 ## Rationale
-Can I build a small binary that largely follows the suckless philosophy which can handle my limited continuous integration needs?
+Can I build a small binary that largely follows the (suckless)[https://suckless.org/philosophy/] philosophy which can handle my limited continuous integration needs?
+
+## Building
+
+### Requirements
+- C compiler
+- Make (unless you want to use something else)
+
+To build run `make`
+
+## Configuration
+
+All configuration takes place in `config.h`, `filter.h` and `actions.h`
+
+You can use the existing filters and actions as templates, and modify the rest of the code to suit your needs.
 
 ## To do
-- Multi-threading
-- HTTP/Request filtering (rules that dictate action)
-- Allow forking shell scripts for more complex actions
+- Multi-threading?
+- More complex example actions
