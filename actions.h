@@ -7,4 +7,6 @@ void ok_action(int client_socket, HTTP_REQUEST req);
 
 void not_found_action(int client_socket, HTTP_REQUEST req);
 
+void github_action(int client_socket, HTTP_REQUEST req);
+
 #endif

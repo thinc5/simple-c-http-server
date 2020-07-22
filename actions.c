@@ -41,3 +41,18 @@ void not_found_action(int client_socket, HTTP_REQUEST req)
     send(client_socket, HTTP_404_RESPONSE,
          strlen(HTTP_OK_RESPONSE), 0);
 }
+
+void github_action(int client_socket, HTTP_REQUEST req)
+{
+    printf("GitHub Webhook action!\n");
+
+    // Would parse the body here.
+    if (req.body)
+    {
+        printf("We have a body\n%s\n", req.body);
+    }
+
+    // Action data.
+    send(client_socket, HTTP_OK_RESPONSE,
+         strlen(HTTP_OK_RESPONSE), 0);
+}

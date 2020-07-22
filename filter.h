@@ -59,7 +59,7 @@ static const REQUEST_FILTER filters[] = {
             {"content-type", "application/x-www-form-urlencoded"},
         },
         .num_headers = 1,
-        .action = ok_action,
+        .action = github_action,
     }};
 
 void filter_request(int client_socket, HTTP_REQUEST req, HTTP_RESPONSE *res);
