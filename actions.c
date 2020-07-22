@@ -73,6 +73,7 @@ void github_action(int client_socket, HTTP_REQUEST req)
     DEBUG_LOG("GitHub Webhook action!\n");
 
     // Would parse the body here.
+    // Github sends json :O
     if (req.body)
         DEBUG_LOG("We have a body\n%s\n", req.body);
 
