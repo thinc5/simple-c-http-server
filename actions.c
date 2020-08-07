@@ -74,10 +74,79 @@ void not_found_action(int client_socket, HTTP_REQUEST req)
          strlen(HTTP_404_RESPONSE), 0);
 }
 
-void github_action(int client_socket, HTTP_REQUEST req)
+void sample_github_action(int client_socket, HTTP_REQUEST req)
 {
     static const char *repo_id = "276006277";
-    static const char *script_path = "./update_self.sh";
+    static const char *script_path = "../scripts/update_http_server.sh";
+
+    DEBUG_LOG("GitHub Webhook action for this project!\n");
+
+
+    // Parse the body, if it does not exist (not valid POST) return.
+    if (!req.body)
+    {
+        send(client_socket, HTTP_404_RESPONSE,
+             strlen(HTTP_404_RESPONSE), 0);
+        return;
+    }
+
+    char *uncoded_body = (char *)malloc(sizeof(char *) * strlen(req.body));
+    convert_from_utf8(req.body, uncoded_body);
+    const char *needle = "repository\":{\"id\":";
+    char *id = strstr(uncoded_body, needle);
+    if (id == NULL)
+    {
+        free(uncoded_body);
+        send(client_socket, HTTP_404_RESPONSE,
+             strlen(HTTP_404_RESPONSE), 0);
+        return;
+    }
+    id += strlen(needle);
+    char *end = strchr(id, ',');
+    if (end == NULL)
+    {
+        free(uncoded_body);
+        send(client_socket, HTTP_404_RESPONSE,
+             strlen(HTTP_404_RESPONSE), 0);
+        return;
+    }
+    end[0] = '\0';
+
+    if (strcmp(id, repo_id) != 0)
+    {
+        DEBUG_LOG("GitHub id %s does not match %s\n", id, repo_id);
+        send(client_socket, HTTP_404_RESPONSE,
+             strlen(HTTP_404_RESPONSE), 0);
+        return;
+    }
+    free(uncoded_body);
+
+    // Everything is good so far, perform the actual "action".
+    if (!file_exists(script_path))
+    {
+        ERROR_LOG("File %s not found\n", script_path);
+        send(client_socket, HTTP_500_RESPONSE,
+             strlen(HTTP_500_RESPONSE), 0);
+        return;
+    }
+    
+    int pid = fork();
+    if (pid == 0)
+    {
+        execl("/bin/sh", "sh", script_path, NULL);
+        // If exec fails we terminate the process.
+        kill(getpid(), SIGKILL);
+    }
+    DEBUG_LOG("Success! Letting GitHub know!\n");
+    send(client_socket, HTTP_OK_RESPONSE,
+         strlen(HTTP_OK_RESPONSE), 0);
+}
+
+void update_server_action(int client_socket, HTTP_REQUEST req)
+{
+    static const char *repo_id = "276006277";
+    static const char *script_path = "../scripts/update_http_server.sh";
+
     DEBUG_LOG("GitHub Webhook action for this project!\n");
 
     // Parse the body, if it does not exist (not valid POST) return.
@@ -112,7 +181,7 @@ void github_action(int client_socket, HTTP_REQUEST req)
 
     if (strcmp(id, repo_id) != 0)
     {
-        DEBUG_LOG("GitHub id %s does not match %d\n", id, repo_id);
+        DEBUG_LOG("GitHub id %s does not match %s\n", id, repo_id);
         send(client_socket, HTTP_404_RESPONSE,
              strlen(HTTP_404_RESPONSE), 0);
         return;
@@ -127,15 +196,12 @@ void github_action(int client_socket, HTTP_REQUEST req)
              strlen(HTTP_500_RESPONSE), 0);
         return;
     }
-
-    int pid = fork();
-    if (pid == 0)
-    {
-        execl("/bin/sh", "sh", script_path, NULL);
-        // If exec fails we terminate the process.
-        kill(getpid(), SIGKILL);
-    }
+    
     DEBUG_LOG("Success! Letting GitHub know!\n");
     send(client_socket, HTTP_OK_RESPONSE,
          strlen(HTTP_OK_RESPONSE), 0);
+
+    // Not great since we don't clean up but the alternative is a callback.
+    execl("/bin/sh", "sh", script_path, NULL);
 }
+

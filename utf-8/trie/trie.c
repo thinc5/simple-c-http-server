@@ -30,15 +30,15 @@ static char dec_to_hex(int dec)
     return -1;
 }
 
-static void test_hex()
-{
-    for (int i = 0; i < 16; i++)
-        printf("dec to hex: %d, %c\n", i, dec_to_hex(i));
-
-    char hex[] = {'1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F'};
-    for (int i = 0; i < 16; i++)
-        printf("hex to dec: %c, %d\n", hex_to_dec(hex[i]), hex[i]);
-}
+// static void test_hex()
+// {
+//    for (int i = 0; i < 16; i++)
+//        printf("dec to hex: %d, %c\n", i, dec_to_hex(i));
+//
+//    char hex[] = {'1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F'};
+//    for (int i = 0; i < 16; i++)
+//        printf("hex to dec: %c, %d\n", hex_to_dec(hex[i]), hex[i]);
+//}
 #endif
 
 /**
@@ -134,7 +134,7 @@ void debug_trie(Trie *root, int depth, char value)
     memset(spacer, '\0', 50);
     memset(spacer, '-', depth);
     char strval[] = {value};
-    printf("%s> %s -> '%c' (%lu)\n", spacer, value ? "�" : strval, root->value, root);
+    printf("%s> %s -> '%c' (%lu)\n", spacer, value ? "�" : strval, root->value, (long unsigned)root);
     for (int i = 0; i < MAX_CHARACTERS; i++)
         if (root->characters[i] != NULL)
             debug_trie(root->characters[i], depth + 1, dec_to_hex(i));

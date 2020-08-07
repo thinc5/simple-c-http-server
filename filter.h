@@ -16,7 +16,7 @@ typedef enum FILTER_COLUMN
 typedef enum FILTERS
 {
     TEST_FILTER,
-    // DO NOT REMOVE THIS
+    UPDATE_SERVER,
     GITHUB_EXAMPLE,
     NUM_FILTERS,
 } FILTERS;
@@ -41,6 +41,17 @@ static const REQUEST_FILTER filters[] = {
         .host = NULL,
         .num_headers = 0,
         .action = ok_action,
+    }, 
+    [UPDATE_SERVER] = {
+        .method = POST,
+        .path = "/",
+        .host = NULL,
+        .headers = {
+            {"x-github-event", "push"},
+            {"content-type", "application/x-www-form-urlencoded"},
+        },
+        .num_headers = 2,
+        .action = update_server_action,
     },
     [GITHUB_EXAMPLE] = {
         .method = POST,
@@ -48,12 +59,12 @@ static const REQUEST_FILTER filters[] = {
         .host = NULL,
         .headers = {
             {"x-github-event", "push"},
-            {"user-agent", "GitHub-Hookshot/68e1230"},
             {"content-type", "application/x-www-form-urlencoded"},
         },
-        .num_headers = 3,
-        .action = github_action,
-    }};
+        .num_headers = 2,
+        .action = sample_github_action,
+   }
+};
 
 void filter_request(int client_socket, HTTP_REQUEST req, HTTP_RESPONSE *res);
 
