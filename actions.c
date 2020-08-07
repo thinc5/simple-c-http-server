@@ -3,6 +3,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <signal.h>
+#include <stdbool.h>
 
 #include <sys/socket.h>
 #include <sys/stat.h>
@@ -43,16 +44,17 @@ static const inline int file_exists(const char *path)
     return (stat(path, &buffer) == 0);
 }
 
-void generic_action(int client_socket, HTTP_REQUEST req)
+bool generic_action(int client_socket, HTTP_REQUEST req)
 {
     // Action data.
     send(client_socket, HTTP_OK_RESPONSE,
          strlen(HTTP_OK_RESPONSE), 0);
+    return true;
 }
 
 // A generic 204, let the client know that we accepted the message, but there
 // is no content.
-void ok_action(int client_socket, HTTP_REQUEST req)
+bool ok_action(int client_socket, HTTP_REQUEST req)
 {
     if (req.body)
     {
@@ -62,19 +64,21 @@ void ok_action(int client_socket, HTTP_REQUEST req)
     // Action data.
     send(client_socket, HTTP_OK_TEXT_RESPONSE,
          strlen(HTTP_OK_TEXT_RESPONSE), 0);
+    return true;
 }
 
 // Error processing or no match, simply a 404.
-void not_found_action(int client_socket, HTTP_REQUEST req)
+bool not_found_action(int client_socket, HTTP_REQUEST req)
 {
     DEBUG_LOG("404 action!!\n");
 
     // Action data.
     send(client_socket, HTTP_404_RESPONSE,
-         strlen(HTTP_404_RESPONSE), 0);
+        strlen(HTTP_404_RESPONSE), 0);
+    return true;
 }
 
-void sample_github_action(int client_socket, HTTP_REQUEST req)
+bool sample_github_action(int client_socket, HTTP_REQUEST req)
 {
     static const char *repo_id = "276006277";
     static const char *script_path = "../scripts/update_http_server.sh";
@@ -84,11 +88,7 @@ void sample_github_action(int client_socket, HTTP_REQUEST req)
 
     // Parse the body, if it does not exist (not valid POST) return.
     if (!req.body)
-    {
-        send(client_socket, HTTP_404_RESPONSE,
-             strlen(HTTP_404_RESPONSE), 0);
-        return;
-    }
+        return false;
 
     char *uncoded_body = (char *)malloc(sizeof(char *) * strlen(req.body));
     convert_from_utf8(req.body, uncoded_body);
@@ -97,27 +97,21 @@ void sample_github_action(int client_socket, HTTP_REQUEST req)
     if (id == NULL)
     {
         free(uncoded_body);
-        send(client_socket, HTTP_404_RESPONSE,
-             strlen(HTTP_404_RESPONSE), 0);
-        return;
+        return false;
     }
     id += strlen(needle);
     char *end = strchr(id, ',');
     if (end == NULL)
     {
         free(uncoded_body);
-        send(client_socket, HTTP_404_RESPONSE,
-             strlen(HTTP_404_RESPONSE), 0);
-        return;
+        return false;
     }
     end[0] = '\0';
 
     if (strcmp(id, repo_id) != 0)
     {
         DEBUG_LOG("GitHub id %s does not match %s\n", id, repo_id);
-        send(client_socket, HTTP_404_RESPONSE,
-             strlen(HTTP_404_RESPONSE), 0);
-        return;
+        return false;
     }
     free(uncoded_body);
 
@@ -127,7 +121,7 @@ void sample_github_action(int client_socket, HTTP_REQUEST req)
         ERROR_LOG("File %s not found\n", script_path);
         send(client_socket, HTTP_500_RESPONSE,
              strlen(HTTP_500_RESPONSE), 0);
-        return;
+        return true;
     }
     
     int pid = fork();
@@ -140,9 +134,10 @@ void sample_github_action(int client_socket, HTTP_REQUEST req)
     DEBUG_LOG("Success! Letting GitHub know!\n");
     send(client_socket, HTTP_OK_RESPONSE,
          strlen(HTTP_OK_RESPONSE), 0);
+    return true;
 }
 
-void update_server_action(int client_socket, HTTP_REQUEST req)
+bool update_server_action(int client_socket, HTTP_REQUEST req)
 {
     static const char *repo_id = "276006277";
     static const char *script_path = "../scripts/update_http_server.sh";
@@ -151,11 +146,7 @@ void update_server_action(int client_socket, HTTP_REQUEST req)
 
     // Parse the body, if it does not exist (not valid POST) return.
     if (!req.body)
-    {
-        send(client_socket, HTTP_404_RESPONSE,
-             strlen(HTTP_404_RESPONSE), 0);
-        return;
-    }
+        return false;
 
     char *uncoded_body = (char *)malloc(sizeof(char *) * strlen(req.body));
     convert_from_utf8(req.body, uncoded_body);
@@ -164,27 +155,22 @@ void update_server_action(int client_socket, HTTP_REQUEST req)
     if (id == NULL)
     {
         free(uncoded_body);
-        send(client_socket, HTTP_404_RESPONSE,
-             strlen(HTTP_404_RESPONSE), 0);
-        return;
+        return false;
     }
     id += strlen(needle);
     char *end = strchr(id, ',');
     if (end == NULL)
     {
         free(uncoded_body);
-        send(client_socket, HTTP_404_RESPONSE,
-             strlen(HTTP_404_RESPONSE), 0);
-        return;
+        return false;
     }
     end[0] = '\0';
 
     if (strcmp(id, repo_id) != 0)
     {
         DEBUG_LOG("GitHub id %s does not match %s\n", id, repo_id);
-        send(client_socket, HTTP_404_RESPONSE,
-             strlen(HTTP_404_RESPONSE), 0);
-        return;
+        free(uncoded_body);
+        return false;
     }
     free(uncoded_body);
 
@@ -194,7 +180,7 @@ void update_server_action(int client_socket, HTTP_REQUEST req)
         ERROR_LOG("File %s not found\n", script_path);
         send(client_socket, HTTP_500_RESPONSE,
              strlen(HTTP_500_RESPONSE), 0);
-        return;
+        return true;
     }
     
     DEBUG_LOG("Success! Letting GitHub know!\n");
@@ -203,9 +189,10 @@ void update_server_action(int client_socket, HTTP_REQUEST req)
 
     // Not great since we don't clean up but the alternative is a callback.
     execl("/bin/sh", "sh", script_path, NULL);
+    return true;
 }
 
-void update_website_action(int client_socket, HTTP_REQUEST req)
+bool update_website_action(int client_socket, HTTP_REQUEST req)
 {
     static const char *web_repo_id = "275560807";
     static const char *blog_repo_id = "275565965";
@@ -215,11 +202,7 @@ void update_website_action(int client_socket, HTTP_REQUEST req)
 
     // Parse the body, if it does not exist (not valid POST) return.
     if (!req.body)
-    {
-        send(client_socket, HTTP_404_RESPONSE,
-             strlen(HTTP_404_RESPONSE), 0);
-        return;
-    }
+        return false;
 
     char *uncoded_body = (char *)malloc(sizeof(char *) * strlen(req.body));
     convert_from_utf8(req.body, uncoded_body);
@@ -228,27 +211,22 @@ void update_website_action(int client_socket, HTTP_REQUEST req)
     if (id == NULL)
     {
         free(uncoded_body);
-        send(client_socket, HTTP_404_RESPONSE,
-             strlen(HTTP_404_RESPONSE), 0);
-        return;
+        return false;
     }
     id += strlen(needle);
     char *end = strchr(id, ',');
     if (end == NULL)
     {
         free(uncoded_body);
-        send(client_socket, HTTP_404_RESPONSE,
-             strlen(HTTP_404_RESPONSE), 0);
-        return;
+        return false;
     }
     end[0] = '\0';
 
     if (strcmp(id, web_repo_id) != 0 && strcmp(id, blog_repo_id) != 0)
     {
+        free(uncoded_body);
         DEBUG_LOG("GitHub id %s does not match provided repository ids\n", id);
-        send(client_socket, HTTP_404_RESPONSE,
-             strlen(HTTP_404_RESPONSE), 0);
-        return;
+        return false;
     }
     free(uncoded_body);
 
@@ -258,7 +236,7 @@ void update_website_action(int client_socket, HTTP_REQUEST req)
         ERROR_LOG("File %s not found\n", script_path);
         send(client_socket, HTTP_500_RESPONSE,
              strlen(HTTP_500_RESPONSE), 0);
-        return;
+        return true;
     }
     
     int pid = fork();
@@ -271,6 +249,5 @@ void update_website_action(int client_socket, HTTP_REQUEST req)
     DEBUG_LOG("Success! Letting GitHub know!\n");
     send(client_socket, HTTP_OK_RESPONSE,
          strlen(HTTP_OK_RESPONSE), 0);
+    return true;
 }
-
-
