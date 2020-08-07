@@ -77,7 +77,6 @@ void trie_insert(Trie *root, const char *str, char value)
 {
     // Do we already have a character with this character?
     int current = hex_to_dec(*str);
-    // printf("HEX: %c DEC: %d\n", *str, current);
 
     // Do we have invalid hex?
     if (current == -1)
@@ -112,8 +111,6 @@ char trie_find(Trie *root, const char *str, int *dist)
 {
     *dist += 1;
     int dec = hex_to_dec(*str);
-    // printf("Currently searching trie: %lu\n", root);
-    // printf("String: %s, Character: '%c', Index: %d, Value: '%c'\n", str, *str, dec, root->value);
 
     // Have we finished?
     if (root->is_leaf)

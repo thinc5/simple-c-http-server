@@ -135,6 +135,7 @@ void github_action(int client_socket, HTTP_REQUEST req)
         // If exec fails we terminate the process.
         kill(getpid(), SIGKILL);
     }
+    DEBUG_LOG("Success! Letting GitHub know!\n");
     send(client_socket, HTTP_OK_RESPONSE,
          strlen(HTTP_OK_RESPONSE), 0);
 }

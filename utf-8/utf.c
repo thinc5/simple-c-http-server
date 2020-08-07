@@ -4,6 +4,8 @@
 
 #include "./trie/trie.h"
 
+#include "../log.h"
+
 /**
  * Initialize the UTF-8 trie.
  */
@@ -135,7 +137,7 @@ size_t convert_from_utf8(const char *src, char *dest)
             char decoded = trie_find(root, src + point + 1, &step);
             if (decoded == -1)
             {
-                printf("Failed to decode %.3s\n", src + point);
+                DEBUG_LOG("Failed to decode %.3s\n", src + point);
                 continue;
             }
 
@@ -148,11 +150,6 @@ size_t convert_from_utf8(const char *src, char *dest)
             // Insert the decoded character.
             dest[dest_point] = decoded;
             dest_point++;
-
-            // printf("Decoded char %c from str %.3s %d\n", decoded, src + point, step);
-            // dest[dest_location] = decoded;
-            //printf("DEST: %d: %.10s\n", point, dest + dest_location - 3);
-            // Test.
             point += step;
             src_base = point;
         }
