@@ -24,9 +24,13 @@ findh			:= du -a $(INCDIR) | grep -E '\.(h)$$' | awk '{print $$2}'
 SOURCES  		:= $(shell $(findc))
 INCLUDES 		:= $(shell $(findh))
 
-# What are my objects?
+#-------------- What are my objects?
 OBJECTS  		:= $(SOURCES:$(SRCDIR)/%.c=$(OBJDIR)/%.o)
-$(shell $(mkdir) $(OBJDIR))
+#$(shell $(mkdir) $(OBJDIR))
+
+#-------------- make subfolders
+XTRADIR  := $(shell find $(SRCDIR) -type d | grep -v -E ".git|.vscode|^.$$" | awk '{sub(/.\//,"obj/")}1')
+$(shell $(mkdir) $(OBJDIR) $(XTRADIR))
 
 #-------------- Rules
 all: build

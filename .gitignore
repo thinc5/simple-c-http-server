@@ -5,3 +5,4 @@ http-server
 vgcore*
 demo.txt
 obj
+*.out

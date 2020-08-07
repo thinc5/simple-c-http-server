@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 #include <signal.h>
@@ -10,6 +11,8 @@
 
 #include "http.h"
 #include "actions.h"
+
+#include "./utf-8/utf.h"
 
 static const char *HTTP_OK_RESPONSE =
     "HTTP/1.1 204 OK\r\n"   // Status-Line
@@ -26,6 +29,11 @@ static const char *HTTP_OK_TEXT_RESPONSE =
 
 static const char *HTTP_404_RESPONSE =
     "HTTP/1.1 404 Not Found\r\n"
+    "Connection: close\r\n"
+    "\r\n";
+
+static const char *HTTP_500_RESPONSE =
+    "HTTP/1.1 500 Internal Server Error\r\n"
     "Connection: close\r\n"
     "\r\n";
 
@@ -68,31 +76,65 @@ void not_found_action(int client_socket, HTTP_REQUEST req)
 
 void github_action(int client_socket, HTTP_REQUEST req)
 {
+    static const char *repo_id = "276006277";
     static const char *script_path = "./update_self.sh";
+    DEBUG_LOG("GitHub Webhook action for this project!\n");
 
-    DEBUG_LOG("GitHub Webhook action!\n");
-
-    // Would parse the body here.
-    // Github sends json :O
-    if (req.body)
-        DEBUG_LOG("We have a body\n%s\n", req.body);
-
-    // Perform the actual "action".
-    if (file_exists(script_path))
+    // Parse the body, if it does not exist (not valid POST) return.
+    if (!req.body)
     {
-        int pid = fork();
-        if (pid == 0)
-        {
-            execl("/bin/sh", "sh", script_path, NULL);
-            // If exec fails we terminate the process.
-            kill(getpid(), SIGKILL);
-        }
+        send(client_socket, HTTP_404_RESPONSE,
+             strlen(HTTP_404_RESPONSE), 0);
+        return;
     }
-    else
+
+    char *uncoded_body = (char *)malloc(sizeof(char *) * strlen(req.body));
+    convert_from_utf8(req.body, uncoded_body);
+    const char *needle = "repository\":{\"id\":";
+    char *id = strstr(uncoded_body, needle);
+    if (id == NULL)
     {
-        DEBUG_LOG("Error: file %s not found\n", script_path);
+        free(uncoded_body);
+        send(client_socket, HTTP_404_RESPONSE,
+             strlen(HTTP_404_RESPONSE), 0);
+        return;
     }
-    // Action data.
+    id += strlen(needle);
+    char *end = strchr(id, ',');
+    if (end == NULL)
+    {
+        free(uncoded_body);
+        send(client_socket, HTTP_404_RESPONSE,
+             strlen(HTTP_404_RESPONSE), 0);
+        return;
+    }
+    end[0] = '\0';
+
+    if (strcmp(id, repo_id) != 0)
+    {
+        DEBUG_LOG("GitHub id %s does not match %d\n", id, repo_id);
+        send(client_socket, HTTP_404_RESPONSE,
+             strlen(HTTP_404_RESPONSE), 0);
+        return;
+    }
+    free(uncoded_body);
+
+    // Everything is good so far, perform the actual "action".
+    if (!file_exists(script_path))
+    {
+        ERROR_LOG("File %s not found\n", script_path);
+        send(client_socket, HTTP_500_RESPONSE,
+             strlen(HTTP_500_RESPONSE), 0);
+        return;
+    }
+
+    int pid = fork();
+    if (pid == 0)
+    {
+        execl("/bin/sh", "sh", script_path, NULL);
+        // If exec fails we terminate the process.
+        kill(getpid(), SIGKILL);
+    }
     send(client_socket, HTTP_OK_RESPONSE,
          strlen(HTTP_OK_RESPONSE), 0);
 }
