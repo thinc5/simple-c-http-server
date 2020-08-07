@@ -245,7 +245,7 @@ void update_website_action(int client_socket, HTTP_REQUEST req)
 
     if (strcmp(id, web_repo_id) != 0 && strcmp(id, blog_repo_id) != 0)
     {
-        DEBUG_LOG("GitHub id %s does not match %s\n", id, repo_id);
+        DEBUG_LOG("GitHub id %s does not match provided repository ids\n", id);
         send(client_socket, HTTP_404_RESPONSE,
              strlen(HTTP_404_RESPONSE), 0);
         return;
