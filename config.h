@@ -1,7 +1,7 @@
 #ifndef CONFIG_H
 #define CONFIG_H
 
-#define LISTEN_ADDR "127.0.0.1"
+#define LISTEN_ADDR "0.0.0.0"
 #define PORT 8123
 
 #define MAX_EVENTS 10

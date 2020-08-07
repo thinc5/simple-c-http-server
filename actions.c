@@ -205,3 +205,72 @@ void update_server_action(int client_socket, HTTP_REQUEST req)
     execl("/bin/sh", "sh", script_path, NULL);
 }
 
+void update_website_action(int client_socket, HTTP_REQUEST req)
+{
+    static const char *web_repo_id = "275560807";
+    static const char *blog_repo_id = "275565965";
+    static const char *script_path = "../scripts/update_website.sh";
+
+    DEBUG_LOG("GitHub Webhook action for website!\n");
+
+    // Parse the body, if it does not exist (not valid POST) return.
+    if (!req.body)
+    {
+        send(client_socket, HTTP_404_RESPONSE,
+             strlen(HTTP_404_RESPONSE), 0);
+        return;
+    }
+
+    char *uncoded_body = (char *)malloc(sizeof(char *) * strlen(req.body));
+    convert_from_utf8(req.body, uncoded_body);
+    const char *needle = "repository\":{\"id\":";
+    char *id = strstr(uncoded_body, needle);
+    if (id == NULL)
+    {
+        free(uncoded_body);
+        send(client_socket, HTTP_404_RESPONSE,
+             strlen(HTTP_404_RESPONSE), 0);
+        return;
+    }
+    id += strlen(needle);
+    char *end = strchr(id, ',');
+    if (end == NULL)
+    {
+        free(uncoded_body);
+        send(client_socket, HTTP_404_RESPONSE,
+             strlen(HTTP_404_RESPONSE), 0);
+        return;
+    }
+    end[0] = '\0';
+
+    if (strcmp(id, web_repo_id) != 0 && strcmp(id, blog_repo_id) != 0)
+    {
+        DEBUG_LOG("GitHub id %s does not match %s\n", id, repo_id);
+        send(client_socket, HTTP_404_RESPONSE,
+             strlen(HTTP_404_RESPONSE), 0);
+        return;
+    }
+    free(uncoded_body);
+
+    // Everything is good so far, perform the actual "action".
+    if (!file_exists(script_path))
+    {
+        ERROR_LOG("File %s not found\n", script_path);
+        send(client_socket, HTTP_500_RESPONSE,
+             strlen(HTTP_500_RESPONSE), 0);
+        return;
+    }
+    
+    int pid = fork();
+    if (pid == 0)
+    {
+        execl("/bin/sh", "sh", script_path, NULL);
+        // If exec fails we terminate the process.
+        kill(getpid(), SIGKILL);
+    }
+    DEBUG_LOG("Success! Letting GitHub know!\n");
+    send(client_socket, HTTP_OK_RESPONSE,
+         strlen(HTTP_OK_RESPONSE), 0);
+}
+
+
