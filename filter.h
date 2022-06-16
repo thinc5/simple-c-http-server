@@ -1,6 +1,8 @@
 #ifndef FILTER_H
 #define FILTER_H
 
+#include <stdbool.h>
+
 #include "config.h"
 #include "actions.h"
 #include "http.h"
@@ -28,7 +30,7 @@ typedef struct REQUEST_FILTER
     const char *host;
     HTTP_HEADER headers[MAX_HEADERS];
     const int num_headers;
-    void (*const action)(int, HTTP_REQUEST);
+    bool (*const action)(int, HTTP_REQUEST);
 } REQUEST_FILTER;
 
 // Filters will be defined here.

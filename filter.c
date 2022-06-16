@@ -42,7 +42,7 @@ void filter_request(int client_socket, HTTP_REQUEST req, HTTP_RESPONSE *res)
                 {
                     // Match the value.
                     if (strcmp(filters[i].headers[j].value,
-                               req.headers[k].value) == 0)
+                        req.headers[k].value) == 0)
                         match--;
                     break;
                 }
@@ -51,8 +51,9 @@ void filter_request(int client_socket, HTTP_REQUEST req, HTTP_RESPONSE *res)
         if (match == 0)
         {
             // Execute the action and exit the function.
-            filters[i].action(client_socket, req);
-            return;
+            if (filters[i].action(client_socket, req)) {
+                return;
+            }
         }
     }
 
